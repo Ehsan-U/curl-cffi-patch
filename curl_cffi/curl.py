@@ -226,6 +226,7 @@ class Curl:
         self._headers = ffi.NULL
         self._proxy_headers = ffi.NULL
         self._resolve = ffi.NULL
+        self._connect_to = ffi.NULL
         self._cacert = cacert or DEFAULT_CACERT
         self._is_cert_set = False
         self._skip_cacert = False
@@ -399,6 +400,12 @@ class Curl:
                     resolve = resolve.encode()
                 self._resolve = lib.curl_slist_append(self._resolve, resolve)
             ret = lib._curl_easy_setopt(self._curl, option, self._resolve)
+        elif option == CurlOpt.CONNECT_TO:
+            for connect_to in value:
+                if isinstance(connect_to, str):
+                    connect_to = connect_to.encode()
+                self._connect_to = lib.curl_slist_append(self._connect_to, connect_to)
+            ret = lib._curl_easy_setopt(self._curl, option, self._connect_to)
         else:
             ret = lib._curl_easy_setopt(self._curl, option, c_value)
         self._check_error(ret, "setopt", option, value)
@@ -528,6 +535,10 @@ class Curl:
                 lib.curl_slist_free_all(self._resolve)
             self._resolve = ffi.NULL
 
+            if self._connect_to != ffi.NULL:
+                lib.curl_slist_free_all(self._connect_to)
+            self._connect_to = ffi.NULL
+
         if clear_headers:
             if self._headers != ffi.NULL:
                 lib.curl_slist_free_all(self._headers)
@@ -554,10 +565,13 @@ class Curl:
         self._skip_cacert = False
         if self._resolve != ffi.NULL:
             lib.curl_slist_free_all(self._resolve)
+        if self._connect_to != ffi.NULL:
+            lib.curl_slist_free_all(self._connect_to)
         if self._curl is not None:
             lib.curl_easy_reset(self._curl)
             self._set_error_buffer()
         self._resolve = ffi.NULL
+        self._connect_to = ffi.NULL
 
     def parse_cookie_headers(self, headers: list[bytes]) -> SimpleCookie:
         """Extract ``cookies.SimpleCookie`` from header lines.
