@@ -111,9 +111,9 @@ test-skip = [
 build-verbosity = 1
 
 
-# configure cibuildwheel to build native archs ('auto'), and some emulated ones
+# build native arch per runner: x86_64 (ubuntu-24.04) + aarch64 (ubuntu-24.04-arm), no emulation
 [tool.cibuildwheel.linux]
-archs = ["auto", "aarch64", "riscv64", "i686", "armv7l"]
+archs = ["auto"]
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
