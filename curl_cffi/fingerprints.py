@@ -402,6 +402,149 @@ class Fingerprint:
     header_lang: str = ""
 
 
+BUILTIN_FINGERPRINTS: dict[str, Fingerprint] = {
+    "okhttp50a2": Fingerprint(
+        client="okhttp",
+        client_version="5.0.0-alpha2",
+        os="Android",
+        os_version="provider-dependent",
+        http_version="v2",
+        tls_version="1.2",
+        tls_ciphers=[
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+        ],
+        tls_alpn=True,
+        tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "rsa_pss_rsae_sha256",
+            "rsa_pkcs1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "rsa_pss_rsae_sha384",
+            "rsa_pkcs1_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha512",
+            "rsa_pkcs1_sha1",
+        ],
+        tls_key_shares_limit=1,
+        tls_supported_groups=["X25519", "P-256", "P-384"],
+        tls_session_ticket=True,
+        tls_extension_order="0-23-65281-10-11-35-16-5-13-51-45-43-21",
+        headers={"Accept-Encoding": "gzip", "User-Agent": "okhttp/5.0.0-alpha2"},
+        http2_settings="4:16777216",
+        http2_window_update=16711681,
+        http2_pseudo_headers_order="m,p,a,s",
+        http2_no_priority=True,
+    ),
+    "okhttp51_android11": Fingerprint(
+        client="okhttp",
+        client_version="5.1.0",
+        os="Android",
+        os_version="11",
+        http_version="v2",
+        tls_version="1.2",
+        tls_ciphers=[
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+        ],
+        tls_alpn=True,
+        tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "rsa_pss_rsae_sha256",
+            "rsa_pkcs1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "rsa_pss_rsae_sha384",
+            "rsa_pkcs1_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha512",
+            "rsa_pkcs1_sha1",
+        ],
+        tls_key_shares_limit=1,
+        tls_supported_groups=["X25519", "P-256", "P-384"],
+        tls_session_ticket=True,
+        tls_extension_order="0-23-65281-10-11-35-16-5-13-51-45-43-21",
+        headers={"Accept-Encoding": "gzip", "User-Agent": "okhttp/5.1.0"},
+        http2_settings="4:16777216",
+        http2_window_update=16711681,
+        http2_pseudo_headers_order="m,p,a,s",
+        http2_no_priority=True,
+    ),
+    "okhttp54_android11": Fingerprint(
+        client="okhttp",
+        client_version="5.4.0",
+        os="Android",
+        os_version="11",
+        http_version="v2",
+        tls_version="1.2",
+        tls_ciphers=[
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+        ],
+        tls_alpn=True,
+        tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "rsa_pss_rsae_sha256",
+            "rsa_pkcs1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "rsa_pss_rsae_sha384",
+            "rsa_pkcs1_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha512",
+            "rsa_pkcs1_sha1",
+        ],
+        tls_key_shares_limit=1,
+        tls_supported_groups=["X25519", "P-256", "P-384"],
+        tls_session_ticket=True,
+        tls_extension_order="0-23-65281-10-11-35-16-5-13-51-45-43-21",
+        headers={"Accept-Encoding": "gzip", "User-Agent": "okhttp/5.4.0"},
+        http2_settings="4:16777216",
+        http2_window_update=16711681,
+        http2_pseudo_headers_order="m,p,a,s",
+        http2_no_priority=True,
+    ),
+}
+
+
 # fmt: off
 ClientLiteral = Literal[
     # browsers
@@ -610,6 +753,7 @@ class FingerprintManager:
     @cache
     def load_fingerprints(cls) -> dict[str, Fingerprint]:
         parsed = cls._load_native_fingerprints()
+        parsed.update(deepcopy(BUILTIN_FINGERPRINTS))
         fingerprint_path = cls.get_fingerprint_path()
         if os.path.exists(fingerprint_path):
             with open(fingerprint_path) as f:
@@ -644,6 +788,18 @@ class FingerprintManager:
                         "os": native.get("os", ""),
                         "os_version": native.get("os_version", ""),
                         "h3_fingerprints": bool(native.get("h3_fingerprints", False)),
+                    }
+                )
+            elif name in BUILTIN_FINGERPRINTS:
+                rows.append(
+                    {
+                        "type": "builtin",
+                        "name": name,
+                        "browser": fingerprint.client,
+                        "version": fingerprint.client_version,
+                        "os": fingerprint.os,
+                        "os_version": fingerprint.os_version,
+                        "h3_fingerprints": fingerprint.http_version in ("v3", "v3only"),
                     }
                 )
             else:
