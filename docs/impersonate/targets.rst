@@ -1,7 +1,7 @@
 Supported impersonate targets
 -----------------------------
 
-``curl_cffi`` supports the same browser versions as supported by our `fork of curl-impersonate <https://github.com/lexiforest/curl-impersonate>`_.
+``curl_cffi`` supports native targets from our `fork of curl-impersonate <https://github.com/lexiforest/curl-impersonate>`_ and local built-in fingerprints.
 
 Browser versions will be added **only** when their fingerprints change. If you see a version, e.g.
 ``chrome122``, was skipped, you can simply impersonate it with your own headers and the previous version.
@@ -29,6 +29,7 @@ customized fingerprints. See below for details.
 - chrome142 :sup:`11`
 - chrome145 :sup:`13` :sup:`14`
 - chrome146 :sup:`13` :sup:`14`
+- chrome151 :sup:`14` :sup:`15`
 - chrome99_android
 - chrome131_android :sup:`5`
 - edge99
@@ -48,6 +49,7 @@ customized fingerprints. See below for details.
 - firefox135 :sup:`7`
 - firefox144 :sup:`11` :sup:`12`
 - firefox147 :sup:`13` :sup:`14`
+- firefox152 :sup:`14` :sup:`16`
 - tor145 :sup:`8`
 - okhttp50a2
 - okhttp51_android11
@@ -70,6 +72,8 @@ Notes:
 12. Fixed in version ``0.15.0``, previous User-Agent header was `not correct <https://github.com/lexiforest/curl-impersonate/issues/234>`_.
 13. Added in version ``0.15.0``.
 14. http3 support included.
+15. Captured on Linux with Chrome ``151.0.7922.75``.
+16. Captured on Ubuntu 25.10 with Firefox ``152.0.6``. Its TCP/TLS and HTTP/2 fingerprints are exact; the bundled QUIC backend cannot reproduce Firefox's TLS 1.3 cipher order, certificate-compression order, client connection-ID length, or extended-master-secret and renegotiation-info extensions over HTTP/3.
 
 ``okhttp50a2`` is the wreq-derived OkHttp 5.0.0-alpha2 transport profile. OkHttp uses the
 platform TLS provider, so cipher availability and the resulting fingerprint can differ
@@ -91,7 +95,7 @@ Which target version to use?
 ----------------------------
 
 Generally speaking, you should use the latest Chrome or Safari versions. Currently, they're
-``chrome146``, ``safari260`` and ``safari260_ios``. To always impersonate the latest available
+``chrome151``, ``firefox152``, ``safari260`` and ``safari260_ios``. To always impersonate the latest available
 browser versions, you can simply use ``chrome``, ``firefox``, ``safari`` and ``chrome_android``, ``safari_ios``.
 Likewise, use ``okhttp`` for the newest captured OkHttp profile.
 

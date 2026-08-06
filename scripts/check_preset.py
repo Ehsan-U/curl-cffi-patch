@@ -33,6 +33,16 @@ def find_assignment_value(module: ast.Module, name: str) -> object:
     raise SystemExit(f"Could not find assignment for {name!r}")
 
 
+def find_dict_keys(module: ast.Module, name: str) -> set[str]:
+    for node in module.body:
+        if not isinstance(node, ast.AnnAssign) or not isinstance(node.target, ast.Name) or node.target.id != name:  # noqa: E501
+            continue
+        if not isinstance(node.value, ast.Dict):
+            raise SystemExit(f"{name} must be a dict literal")
+        return {str(ast.literal_eval(key)) for key in node.value.keys}
+    raise SystemExit(f"Could not find assignment for {name!r}")
+
+
 def extract_literal_items(text: str, name: str, stop_comment: str) -> list[str]:
     pattern = re.compile(rf"^{name}\s*=\s*Literal\[$", re.MULTILINE)
     match = pattern.search(text)
@@ -107,6 +117,7 @@ def main() -> int:
     native_targets = find_assignment_value(
         fingerprints_ast, "NATIVE_IMPERSONATE_TARGETS"
     )
+    builtin_target_names = find_dict_keys(fingerprints_ast, "BUILTIN_FINGERPRINTS")
 
     if not isinstance(defaults, dict):
         raise SystemExit("REAL_TARGET_MAP must be a dict literal")
@@ -119,6 +130,7 @@ def main() -> int:
         for item in native_targets
         if isinstance(item, dict) and isinstance(item.get("target_name"), str)
     }
+    preset_target_names = native_target_names | builtin_target_names
 
     errors: list[str] = []
 
@@ -136,8 +148,8 @@ def main() -> int:
                 + format_values(missing_in_literal)
             )
 
-    missing_in_fingerprints = sorted(literal_targets - native_target_names)
-    extra_in_fingerprints = sorted(native_target_names - literal_targets)
+    missing_in_fingerprints = sorted(literal_targets - preset_target_names)
+    extra_in_fingerprints = sorted(preset_target_names - literal_targets)
     if missing_in_fingerprints:
         errors.append(
             "fingerprints.py is missing concrete presets from impersonate.py: "
@@ -161,10 +173,10 @@ def main() -> int:
                 f"REAL_TARGET_MAP[{alias!r}]={mapped_value!r} does not match "
                 f"{default_name}={default_value!r}"
             )
-        if default_value not in native_target_names:
+        if default_value not in preset_target_names:
             errors.append(
                 f"{default_name}={default_value!r} is missing from "
-                "NATIVE_IMPERSONATE_TARGETS"
+                "NATIVE_IMPERSONATE_TARGETS and BUILTIN_FINGERPRINTS"
             )
 
     if errors:

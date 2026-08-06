@@ -119,7 +119,12 @@ def test_parse_fingerprints_keeps_http3_and_websocket_fields():
         "custom": {
             "http3_headers": {"User-Agent": "h3-agent"},
             "http3_header_order": "User-Agent",
+            "http3_signature_hashes": ["rsa_pss_rsae_sha256"],
+            "http3_tls_permute_extensions": True,
+            "http3_tls_fixed_extension_suffix": 2,
             "http3_tls_supported_groups": ["X25519", "P-256"],
+            "http3_alt_used": True,
+            "quic_permute_version_information": True,
             "ws_headers": {"User-Agent": "ws-agent"},
             "ws_header_order": "User-Agent",
             "ws_disable_session_ticket": True,
@@ -131,11 +136,67 @@ def test_parse_fingerprints_keeps_http3_and_websocket_fields():
 
     assert fingerprint.http3_headers == {"User-Agent": "h3-agent"}
     assert fingerprint.http3_header_order == "User-Agent"
+    assert fingerprint.http3_signature_hashes == ["rsa_pss_rsae_sha256"]
+    assert fingerprint.http3_tls_permute_extensions is True
+    assert fingerprint.http3_tls_fixed_extension_suffix == 2
     assert fingerprint.http3_tls_supported_groups == ["X25519", "P-256"]
+    assert fingerprint.http3_alt_used is True
+    assert fingerprint.quic_permute_version_information is True
     assert fingerprint.ws_headers == {"User-Agent": "ws-agent"}
     assert fingerprint.ws_header_order == "User-Agent"
     assert fingerprint.ws_disable_session_ticket is True
     assert fingerprint.ws_tls_cert_compression == []
+
+
+def test_get_fingerprint_returns_builtin_chrome151_copy(monkeypatch, tmp_path):
+    monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
+
+    fingerprint = curl_cffi.get_fingerprint("chrome151")
+
+    assert fingerprint.client == "chrome"
+    assert fingerprint.client_version == "151"
+    assert fingerprint.os == "Linux"
+    assert fingerprint.os_version == "25.10"
+    assert fingerprint.tls_signature_hashes[:3] == ["mldsa44", "mldsa65", "mldsa87"]
+    assert fingerprint.http2_settings == "1:65536;2:0;4:6291456;6:262144"
+    assert fingerprint.http3_tls_permute_extensions is True
+    assert "12583" not in fingerprint.quic_transport_parameters
+    assert resolve_latest_browser_type("chrome") == "chrome151"
+    assert next(row for row in FingerprintManager.list_fingerprints() if row["name"] == "chrome151") == {  # noqa: E501
+        "type": "builtin",
+        "name": "chrome151",
+        "browser": "chrome",
+        "version": "151",
+        "os": "Linux",
+        "os_version": "25.10",
+        "h3_fingerprints": True,
+    }
+
+
+def test_get_fingerprint_returns_builtin_firefox152_copy(monkeypatch, tmp_path):
+    monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
+
+    fingerprint = curl_cffi.get_fingerprint("firefox152")
+
+    assert fingerprint.client == "firefox"
+    assert fingerprint.client_version == "152"
+    assert fingerprint.os == "Linux"
+    assert fingerprint.os_version == "25.10"
+    assert fingerprint.tls_key_shares_limit == 3
+    assert fingerprint.http2_settings == "1:65536;2:0;4:131072;5:16384"
+    assert fingerprint.http3_tls_fixed_extension_suffix == 2
+    assert fingerprint.http3_headers["Alt-Used"] == ""
+    assert fingerprint.http3_alt_used is True
+    assert resolve_latest_browser_type("firefox") == "firefox152"
+    assert next(row for row in FingerprintManager.list_fingerprints() if row["name"] == "firefox152") == {  # noqa: E501
+        "type": "builtin",
+        "name": "firefox152",
+        "browser": "firefox",
+        "version": "152",
+        "os": "Linux",
+        "os_version": "25.10",
+        "h3_fingerprints": True,
+    }
 
 
 def test_get_fingerprint_returns_builtin_okhttp50a2_copy(monkeypatch, tmp_path):

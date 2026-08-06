@@ -12,6 +12,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable
 from io import BytesIO
 from json import dumps
+from random import SystemRandom
 from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Union, cast, final
 from urllib.parse import ParseResult, parse_qsl, quote, urlencode, urljoin, urlparse
 
@@ -421,6 +422,7 @@ def _apply_fingerprint(
     fingerprint: Fingerprint,
     existing_header_names: set[str],
     default_headers: bool,
+    request_url: str,
 ) -> None:
     if fingerprint.tls_version:
         tls_version = _normalize_tls_version(fingerprint.tls_version)
@@ -514,10 +516,16 @@ def _apply_fingerprint(
             CurlOpt.HTTP3_PSEUDO_HEADERS_ORDER,
             fingerprint.http3_pseudo_headers_order.replace(",", ""),
         )
+    if fingerprint.http3_signature_hashes:
+        curl.setopt(CurlOpt.HTTP3_SIG_HASH_ALGS, ":".join(fingerprint.http3_signature_hashes))  # noqa: E501
     if fingerprint.http3_tls_extension_order:
-        curl.setopt(
-            CurlOpt.HTTP3_TLS_EXTENSION_ORDER, fingerprint.http3_tls_extension_order
-        )
+        http3_tls_extensions = fingerprint.http3_tls_extension_order.split("-")
+        if fingerprint.http3_tls_permute_extensions:
+            suffix = http3_tls_extensions[-fingerprint.http3_tls_fixed_extension_suffix:] if fingerprint.http3_tls_fixed_extension_suffix else []  # noqa: E501
+            http3_tls_extensions = http3_tls_extensions[:-fingerprint.http3_tls_fixed_extension_suffix] if fingerprint.http3_tls_fixed_extension_suffix else http3_tls_extensions  # noqa: E501
+            SystemRandom().shuffle(http3_tls_extensions)
+            http3_tls_extensions.extend(suffix)
+        curl.setopt(CurlOpt.HTTP3_TLS_EXTENSION_ORDER, "-".join(http3_tls_extensions))
     if fingerprint.http3_header_order:
         curl.setopt(CurlOpt.HTTP3_HTTPHEADER_ORDER, fingerprint.http3_header_order)
     if fingerprint.http3_tls_supported_groups:
@@ -527,9 +535,12 @@ def _apply_fingerprint(
         ]
         curl.setopt(CurlOpt.HTTP3_SSL_EC_CURVES, ":".join(normalized_groups))
     if fingerprint.quic_transport_parameters:
-        curl.setopt(
-            CurlOpt.QUIC_TRANSPORT_PARAMETERS, fingerprint.quic_transport_parameters
-        )
+        quic_transport_parameters = fingerprint.quic_transport_parameters
+        if fingerprint.quic_permute_version_information:
+            available_versions = ["1", "GREASE"]
+            SystemRandom().shuffle(available_versions)
+            quic_transport_parameters = quic_transport_parameters.replace("17:1@1,GREASE", f"17:1@{','.join(available_versions)}")  # noqa: E501
+        curl.setopt(CurlOpt.QUIC_TRANSPORT_PARAMETERS, quic_transport_parameters)
 
     # websocket settings
     if fingerprint.ws_header_order:
@@ -559,13 +570,12 @@ def _apply_fingerprint(
             curl.setopt(CurlOpt.HTTPHEADER, [h.encode() for h in header_lines])
 
     if default_headers and fingerprint.http3_headers:
-        curl.setopt(
-            CurlOpt.HTTP3_HTTPHEADER,
-            [
-                f"{key}: {value}".encode()
-                for key, value in fingerprint.http3_headers.items()
-            ],
-        )
+        header_lines = []
+        for key, value in fingerprint.http3_headers.items():
+            if fingerprint.http3_alt_used and key.lower() == "alt-used":
+                value = urlparse(request_url).netloc.rsplit("@", 1)[-1]
+            header_lines.append(f"{key}: {value}".encode())
+        curl.setopt(CurlOpt.HTTP3_HTTPHEADER, header_lines)
 
     if default_headers and fingerprint.ws_headers:
         curl.setopt(
@@ -918,7 +928,7 @@ def set_curl_options(
     # impersonate
     if impersonate:
         if isinstance(impersonate, Fingerprint):
-            _apply_fingerprint(c, impersonate, existing_header_names, default_headers)
+            _apply_fingerprint(c, impersonate, existing_header_names, default_headers, url)  # noqa: E501
         else:
             normalized = resolve_latest_browser_type(impersonate)
             if _is_native_impersonate_target(normalized):
@@ -933,9 +943,7 @@ def set_curl_options(
                     raise ImpersonateError(
                         f"Impersonating {impersonate} is not supported"
                     )
-                _apply_fingerprint(
-                    c, fingerprint, existing_header_names, default_headers
-                )
+                _apply_fingerprint(c, fingerprint, existing_header_names, default_headers, url)  # noqa: E501
 
     # ja3 string
     if ja3:
