@@ -870,15 +870,15 @@ def set_curl_options(
         if isinstance(impersonate, Fingerprint):
             _apply_fingerprint(c, impersonate, existing_header_names, default_headers)
         else:
-            if _is_native_impersonate_target(impersonate):
-                normalized = resolve_latest_browser_type(impersonate)
+            normalized = resolve_latest_browser_type(impersonate)
+            if _is_native_impersonate_target(normalized):
                 ret = c.impersonate(normalized, default_headers=default_headers)  # type: ignore
                 if ret != 0:
                     raise ImpersonateError(
                         f"Impersonating {normalized} is not supported"
                     )
             else:
-                fingerprint = _load_named_fingerprint(impersonate)
+                fingerprint = _load_named_fingerprint(normalized)
                 if fingerprint is None:
                     raise ImpersonateError(
                         f"Impersonating {impersonate} is not supported"
