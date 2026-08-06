@@ -1,5 +1,5 @@
-Supported browser impersonate targets
--------------------------------------
+Supported impersonate targets
+-----------------------------
 
 ``curl_cffi`` supports the same browser versions as supported by our `fork of curl-impersonate <https://github.com/lexiforest/curl-impersonate>`_.
 
@@ -9,8 +9,8 @@ Browser versions will be added **only** when their fingerprints change. If you s
 If you are too busy to look up those details, you can try our commercial version at `impersonate.pro <https://impersonate.pro>`_,
 which has a weekly updated list of browser profiles and even more browser types.
 
-If you are trying to impersonate a target other than a browser, use ``ja3=...``, ``akamai=...`` and ``extra_fp=...``
-to specify your own customized fingerprints. See below for details.
+For targets not listed below, use ``ja3=...``, ``akamai=...`` and ``extra_fp=...`` to specify your own
+customized fingerprints. See below for details.
 
 - chrome99
 - chrome100
@@ -49,6 +49,10 @@ to specify your own customized fingerprints. See below for details.
 - firefox144 :sup:`11` :sup:`12`
 - firefox147 :sup:`13` :sup:`14`
 - tor145 :sup:`8`
+- okhttp50a2
+- okhttp51_android11
+- okhttp54_android11
+- okhttp (alias for the newest captured OkHttp profile)
 
 Notes:
 
@@ -67,6 +71,21 @@ Notes:
 13. Added in version ``0.15.0``.
 14. http3 support included.
 
+``okhttp50a2`` is the wreq-derived OkHttp 5.0.0-alpha2 transport profile. OkHttp uses the
+platform TLS provider, so cipher availability and the resulting fingerprint can differ
+by Android release, Conscrypt version, or JVM.
+
+``okhttp51_android11`` is the transport fingerprint captured from Truth Social 1.27.2
+(build 1262), using OkHttp 5.1.0 on Android 11. App-specific Truth Social headers are not
+part of the reusable profile.
+
+``okhttp54_android11`` was captured from a minimal app using the official OkHttp 5.4.0
+artifact on Android 11. Its TLS and HTTP/2 fingerprint matches ``okhttp51_android11``;
+the versioned default User-Agent differs.
+
+Use ``okhttp`` to select the newest captured OkHttp profile. It currently resolves to
+``okhttp54_android11``.
+
 
 Which target version to use?
 ----------------------------
@@ -74,6 +93,7 @@ Which target version to use?
 Generally speaking, you should use the latest Chrome or Safari versions. Currently, they're
 ``chrome146``, ``safari260`` and ``safari260_ios``. To always impersonate the latest available
 browser versions, you can simply use ``chrome``, ``firefox``, ``safari`` and ``chrome_android``, ``safari_ios``.
+Likewise, use ``okhttp`` for the newest captured OkHttp profile.
 
 .. code-block:: python
 

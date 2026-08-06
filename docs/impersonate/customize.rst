@@ -1,6 +1,13 @@
 How to use my own fingerprints? e.g. okhttp
 ------
 
+Use ``impersonate="okhttp"`` for the newest captured OkHttp profile. The versioned
+``okhttp50a2`` target is derived from wreq's OkHttp 5.0.0-alpha2 preset, while
+``okhttp51_android11`` is a live OkHttp 5.1.0 capture from Truth Social 1.27.2 on Android
+11. The ``okhttp54_android11`` target comes from a minimal app using the official OkHttp
+5.4.0 artifact on Android 11. Use the custom parameters below when the platform TLS
+provider produces a different fingerprint.
+
 Use ``ja3=...``, ``akamai=...`` and ``extra_fp=...``.
 
 You can retrieve the JA3 and Akamai strings using tools like WireShark or from TLS fingerprinting sites.
@@ -187,4 +194,3 @@ Extension 28: record size limit
    ja3 = "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,4588-29-23-24-25-256-257,0"
 
    r = curl_cffi.get(url, ja3=ja3, extra_fp=extra_fp)
-

@@ -47,6 +47,10 @@ BrowserTypeLiteral = Literal[
     "firefox144",
     "firefox147",
     "tor145",
+    # HTTP clients
+    "okhttp50a2",
+    "okhttp51_android11",
+    "okhttp54_android11",
     # alias
     "chrome",
     "edge",
@@ -56,6 +60,7 @@ BrowserTypeLiteral = Literal[
     "safari_ios_beta",
     "chrome_android",
     "firefox",
+    "okhttp",
     # deprecated aliases
     "safari15_3",
     "safari15_5",
@@ -86,6 +91,7 @@ DEFAULT_SAFARI_IOS_BETA = "safari260_ios"
 DEFAULT_CHROME_ANDROID = "chrome131_android"
 DEFAULT_FIREFOX = "firefox147"
 DEFAULT_TOR = "tor145"
+DEFAULT_OKHTTP = "okhttp54_android11"
 
 
 REAL_TARGET_MAP = {
@@ -98,6 +104,7 @@ REAL_TARGET_MAP = {
     "chrome_android": "chrome131_android",
     "firefox": "firefox147",
     "tor": "tor145",
+    "okhttp": "okhttp54_android11",
 }
 
 
@@ -120,6 +127,8 @@ def resolve_latest_browser_type(item):
         return DEFAULT_FIREFOX
     elif item == "tor":
         return DEFAULT_TOR
+    elif item == "okhttp":
+        return DEFAULT_OKHTTP
     else:
         return item
 
@@ -162,6 +171,9 @@ class BrowserType(str, Enum):  # TODO: remove in version 1.x
     firefox144 = "firefox144"
     firefox147 = "firefox147"
     tor145 = "tor145"
+    okhttp50a2 = "okhttp50a2"
+    okhttp51_android11 = "okhttp51_android11"
+    okhttp54_android11 = "okhttp54_android11"
 
     # deprecated aliases
     safari15_3 = "safari15_3"
