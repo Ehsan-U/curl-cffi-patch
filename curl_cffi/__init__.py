@@ -14,6 +14,7 @@ __all__ = [
     "config_warnings",
     "Fingerprint",
     "FingerprintManager",
+    "FingerprintSpec",
     "get_fingerprint",
     "ffi",
     "lib",
@@ -102,6 +103,11 @@ from .requests import (
 )
 
 from .utils import config_warnings
-from .fingerprints import Fingerprint, FingerprintManager, get_fingerprint
+from .fingerprints import (
+    Fingerprint,
+    FingerprintManager,
+    FingerprintSpec,
+    get_fingerprint,
+)
 
 config_warnings(on=False)

@@ -166,3 +166,42 @@ def test_set_extra_fp_sets_header_order():
     set_extra_fp(curl, extra_fp)
 
     assert curl.options[CurlOpt.HTTPHEADER_ORDER] == "User-Agent,Host,Connection"
+
+
+def test_apply_fingerprint_http3_headers_give_way_to_user_headers():
+    curl = FakeCurl()
+    fingerprint = Fingerprint(
+        headers={"User-Agent": "h1-agent"},
+        http3_headers={"User-Agent": "h3-agent", "Accept": "text/html"},
+    )
+
+    _apply_fingerprint(curl, fingerprint, existing_header_names={"user-agent"}, default_headers=True, request_url="https://example.com")  # noqa: E501
+
+    assert curl.options[CurlOpt.HTTP3_HTTPHEADER] == [b"Accept: text/html"]
+
+
+def test_apply_fingerprint_websocket_headers_give_way_to_user_headers():
+    curl = FakeCurl()
+    fingerprint = Fingerprint(
+        headers={"User-Agent": "h1-agent"},
+        ws_headers={"User-Agent": "ws-agent", "Origin": "https://example.com"},
+    )
+
+    _apply_fingerprint(curl, fingerprint, existing_header_names={"user-agent"}, default_headers=True, request_url="https://example.com")  # noqa: E501
+
+    assert curl.options[CurlOpt.WS_HTTPHEADER] == [b"Origin: https://example.com"]
+
+
+def test_apply_fingerprint_http3_headers_survive_its_own_http1_headers():
+    """Only user headers suppress the http/3 set, the http/1.1 set must not."""
+    curl = FakeCurl()
+    fingerprint = Fingerprint(
+        headers={"User-Agent": "h1-agent", "Accept": "text/html"},
+        http3_headers={"User-Agent": "h3-agent"},
+        ws_headers={"User-Agent": "ws-agent"},
+    )
+
+    _apply_fingerprint(curl, fingerprint, existing_header_names=set(), default_headers=True, request_url="https://example.com")  # noqa: E501
+
+    assert curl.options[CurlOpt.HTTP3_HTTPHEADER] == [b"User-Agent: h3-agent"]
+    assert curl.options[CurlOpt.WS_HTTPHEADER] == [b"User-Agent: ws-agent"]

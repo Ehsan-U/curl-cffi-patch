@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal, Optional, TypedDict
+from typing import Literal, Optional, TypedDict, Union
 
 from ..const import CurlSslVersion
+from ..fingerprints import Fingerprint, FingerprintSpec
 
 
 BrowserTypeLiteral = Literal[
@@ -108,6 +109,11 @@ REAL_TARGET_MAP = {
     "tor": "tor145",
     "okhttp": "okhttp54_android11",
 }
+
+
+# Everything ``impersonate=`` accepts: a target name, a fully specified fingerprint, or
+# a client/platform spec that is resolved to a target name at request time.
+ImpersonateTypes = Union[BrowserTypeLiteral, str, Fingerprint, FingerprintSpec]
 
 
 def resolve_latest_browser_type(item):

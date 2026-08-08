@@ -32,10 +32,13 @@ if TYPE_CHECKING:
 
     from ..const import CurlHttpVersion
     from ..curl import CurlWsFrame
-    from ..fingerprints import Fingerprint
     from .cookies import CookieTypes
     from .headers import HeaderTypes
-    from .impersonate import BrowserTypeLiteral, ExtraFingerprints, ExtraFpDict
+    from .impersonate import (
+        ExtraFingerprints,
+        ExtraFpDict,
+        ImpersonateTypes,
+    )
     from .session import AsyncSession, ProxySpec
 
     T = TypeVar("T")
@@ -315,7 +318,7 @@ class WebSocket(BaseWebSocket):
         verify: bool | None = None,
         referer: str | None = None,
         accept_encoding: str | None = "gzip, deflate, br",
-        impersonate: BrowserTypeLiteral | str | Fingerprint | None = None,
+        impersonate: ImpersonateTypes | None = None,
         ja3: str | None = None,
         akamai: str | None = None,
         perk: str | None = None,

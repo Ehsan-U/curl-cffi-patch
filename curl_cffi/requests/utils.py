@@ -19,10 +19,16 @@ from urllib.parse import ParseResult, parse_qsl, quote, urlencode, urljoin, urlp
 from ..const import CurlFollow, CurlHttpVersion, CurlOpt, CurlSslVersion
 from ..curl import CURL_WRITEFUNC_ERROR, CurlMime
 from ..utils import CurlCffiWarning, HttpVersionLiteral
-from ..fingerprints import Fingerprint, FingerprintManager, NATIVE_IMPERSONATE_TARGETS
+from ..fingerprints import (
+    Fingerprint,
+    FingerprintManager,
+    FingerprintSpec,
+    NATIVE_IMPERSONATE_TARGETS,
+)
 from .cookies import Cookies
 from .exceptions import ImpersonateError, InvalidURL
 from .headers import Headers
+from .identity import resolve_fingerprint_spec
 from .impersonate import (
     TLS_CIPHER_NAME_MAP,
     TLS_EC_CURVES_MAP,
@@ -37,7 +43,7 @@ if TYPE_CHECKING:
     from ..curl import Curl
     from .cookies import CookieTypes
     from .headers import HeaderTypes
-    from .impersonate import BrowserTypeLiteral, ExtraFpDict
+    from .impersonate import ExtraFpDict, ImpersonateTypes
     from .session import ProxySpec
 
 
@@ -553,6 +559,11 @@ def _apply_fingerprint(
             ",".join(fingerprint.ws_tls_cert_compression),
         )
 
+    # The http/1.1 loop below adds its own keys to existing_header_names, so snapshot
+    # the user-defined ones first, the http/3 and websocket header sets are independent
+    # and must only give way to headers the user actually set.
+    user_header_names = set(existing_header_names)
+
     # default headers will not override user-defined headers
     if default_headers and fingerprint.headers:
         header_lines = []
@@ -572,19 +583,22 @@ def _apply_fingerprint(
     if default_headers and fingerprint.http3_headers:
         header_lines = []
         for key, value in fingerprint.http3_headers.items():
+            if key.lower() in user_header_names:
+                continue
             if fingerprint.http3_alt_used and key.lower() == "alt-used":
                 value = urlparse(request_url).netloc.rsplit("@", 1)[-1]
             header_lines.append(f"{key}: {value}".encode())
-        curl.setopt(CurlOpt.HTTP3_HTTPHEADER, header_lines)
+        if header_lines:
+            curl.setopt(CurlOpt.HTTP3_HTTPHEADER, header_lines)
 
     if default_headers and fingerprint.ws_headers:
-        curl.setopt(
-            CurlOpt.WS_HTTPHEADER,
-            [
-                f"{key}: {value}".encode()
-                for key, value in fingerprint.ws_headers.items()
-            ],
-        )
+        header_lines = [
+            f"{key}: {value}".encode()
+            for key, value in fingerprint.ws_headers.items()
+            if key.lower() not in user_header_names
+        ]
+        if header_lines:
+            curl.setopt(CurlOpt.WS_HTTPHEADER, header_lines)
 
 
 def set_curl_options(
@@ -613,7 +627,7 @@ def set_curl_options(
     referer: Optional[str] = None,
     accept_encoding: Optional[str] = "gzip, deflate, br, zstd",
     content_callback: Optional[Callable[..., object]] = None,
-    impersonate: Optional[Union[BrowserTypeLiteral, str, Fingerprint]] = None,
+    impersonate: Optional[ImpersonateTypes] = None,
     ja3: Optional[str] = None,
     akamai: Optional[str] = None,
     perk: Optional[str] = None,
@@ -634,6 +648,13 @@ def set_curl_options(
     c = curl
 
     method = method.upper()  # type: ignore
+
+    # Resolve a client/platform spec down to a target name, so everything below only
+    # ever deals with the plain string form of impersonation.
+    if isinstance(impersonate, FingerprintSpec):
+        impersonate, platform_headers = resolve_fingerprint_spec(impersonate)
+    else:
+        platform_headers = {}
 
     # content/data/body/json
     body_data = content if content is not None else data
@@ -757,6 +778,13 @@ def set_curl_options(
 
     # Never send `Expect` header.
     update_header_line(header_lines, "Expect", "", replace=True)
+
+    # Re-platform the impersonated identity. These are added as user headers so that
+    # they take precedence over the target's own headers, but without `replace`, so a
+    # header the caller set explicitly still wins over the platform.
+    if default_headers:
+        for key, value in platform_headers.items():
+            update_header_line(header_lines, key, value)
 
     c.setopt(CurlOpt.HTTPHEADER, [h.encode() for h in header_lines])
 

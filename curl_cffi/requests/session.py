@@ -51,7 +51,11 @@ from .exceptions import (
     code2error,
 )
 from .headers import Headers, HeaderTypes
-from .impersonate import BrowserTypeLiteral, ExtraFingerprints, ExtraFpDict
+from .impersonate import (
+    ExtraFingerprints,
+    ExtraFpDict,
+    ImpersonateTypes,
+)
 from .models import Response
 from .streams import (
     STREAM_END,
@@ -82,7 +86,6 @@ else:
 if TYPE_CHECKING:
     from typing_extensions import Unpack
 
-    from ..fingerprints import Fingerprint
 
     class ProxySpec(TypedDict, total=False):
         all: str
@@ -106,7 +109,7 @@ if TYPE_CHECKING:
         allow_redirects: Union[bool, CurlFollow, str]
         max_redirects: int
         retry: Union[int, RetryStrategy]
-        impersonate: Optional[Union[BrowserTypeLiteral, str, Fingerprint]]
+        impersonate: Optional[ImpersonateTypes]
         ja3: Optional[str]
         akamai: Optional[str]
         perk: Optional[str]
@@ -144,7 +147,7 @@ if TYPE_CHECKING:
         referer: Optional[str]
         accept_encoding: Optional[str]
         content_callback: Optional[Callable]
-        impersonate: Optional[Union[BrowserTypeLiteral, str, Fingerprint]]
+        impersonate: Optional[ImpersonateTypes]
         ja3: Optional[str]
         akamai: Optional[str]
         perk: Optional[str]
@@ -239,7 +242,7 @@ class BaseSession(Generic[R]):
         allow_redirects: Union[bool, CurlFollow, str] = True,
         max_redirects: int = 30,
         retry: Optional[Union[int, RetryStrategy]] = 0,
-        impersonate: Optional[Union[BrowserTypeLiteral, str, Fingerprint]] = None,
+        impersonate: Optional[ImpersonateTypes] = None,
         ja3: Optional[str] = None,
         akamai: Optional[str] = None,
         perk: Optional[str] = None,
@@ -688,7 +691,7 @@ class Session(BaseSession[R]):
         referer: Optional[str] = None,
         accept_encoding: Optional[str] = "gzip, deflate, br",
         content_callback: Optional[Callable[..., object]] = None,
-        impersonate: Optional[Union[BrowserTypeLiteral, str, Fingerprint]] = None,
+        impersonate: Optional[ImpersonateTypes] = None,
         ja3: Optional[str] = None,
         akamai: Optional[str] = None,
         perk: Optional[str] = None,
@@ -872,7 +875,7 @@ class Session(BaseSession[R]):
         referer: Optional[str] = None,
         accept_encoding: Optional[str] = "gzip, deflate, br",
         content_callback: Optional[Callable] = None,
-        impersonate: Optional[Union[BrowserTypeLiteral, Fingerprint]] = None,
+        impersonate: Optional[ImpersonateTypes] = None,
         ja3: Optional[str] = None,
         akamai: Optional[str] = None,
         perk: Optional[str] = None,
@@ -1176,7 +1179,7 @@ class AsyncSession(BaseSession[R]):
         verify: bool | None = None,
         referer: str | None = None,
         accept_encoding: str | None = "gzip, deflate, br",
-        impersonate: BrowserTypeLiteral | str | Fingerprint | None = None,
+        impersonate: ImpersonateTypes | None = None,
         ja3: str | None = None,
         akamai: str | None = None,
         perk: str | None = None,
@@ -1378,7 +1381,7 @@ class AsyncSession(BaseSession[R]):
         referer: Optional[str] = None,
         accept_encoding: Optional[str] = "gzip, deflate, br",
         content_callback: Optional[Callable] = None,
-        impersonate: Optional[Union[BrowserTypeLiteral, str, Fingerprint]] = None,
+        impersonate: Optional[ImpersonateTypes] = None,
         ja3: Optional[str] = None,
         akamai: Optional[str] = None,
         perk: Optional[str] = None,
@@ -1557,7 +1560,7 @@ class AsyncSession(BaseSession[R]):
         referer: Optional[str] = None,
         accept_encoding: Optional[str] = "gzip, deflate, br",
         content_callback: Optional[Callable[..., Any]] = None,
-        impersonate: Optional[Union[BrowserTypeLiteral, Fingerprint]] = None,
+        impersonate: Optional[ImpersonateTypes] = None,
         ja3: Optional[str] = None,
         akamai: Optional[str] = None,
         perk: Optional[str] = None,

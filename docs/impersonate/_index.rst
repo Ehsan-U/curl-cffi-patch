@@ -14,6 +14,7 @@ a tutorial on how to better impersonate using ``curl_cffi``.
    fingerprint
    ja4
    targets
+   identity
    customize
    psk
    faq

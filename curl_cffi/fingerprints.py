@@ -12,10 +12,13 @@ from .const import CurlInfo, CurlOpt
 from .curl import Curl, CurlError
 
 __all__ = [
+    "ClientLiteral",
     "Fingerprint",
     "FingerprintUpdateError",
     "FingerprintSpec",
     "FingerprintManager",
+    "PlatformLiteral",
+    "StrategyLiteral",
     "get_fingerprint",
 ]
 
@@ -755,7 +758,7 @@ BUILTIN_FINGERPRINTS: dict[str, Fingerprint] = {
 # fmt: off
 ClientLiteral = Literal[
     # browsers
-    "chrome", "firefox", "edge", "brave", "opera", "brave", "operamini",
+    "chrome", "firefox", "edge", "safari", "tor", "brave", "opera", "operamini",
     "qihoo", "qq", "quark", "samsung", "sogou", "sogou_ie",
     # http client
     "volley", "okhttp", "webview",
@@ -763,14 +766,29 @@ ClientLiteral = Literal[
     "baidu", "wechat", "bing", "duckduckgo", "google", "yandex",
 ]
 # fmt: on
-PlatformLiteral = ["macos", "windows", "linux", "ios", "android"]
+PlatformLiteral = Literal["macos", "windows", "linux", "ios", "android"]
+# "uniform" is reserved for a future random auto-select mode, it is not implemented yet.
+StrategyLiteral = Literal["latest", "uniform"]
 
 
-@dataclass
+@dataclass(frozen=True)
 class FingerprintSpec:
-    platform: str | None = None
-    client: ClientLiteral | None = None
-    strategy: Literal["uniform"] | None = "uniform"
+    """Select an impersonation target by client and platform instead of by target name.
+
+    The target is resolved by ``curl_cffi.requests.identity.resolve_fingerprint_spec``,
+    which raises ``ImpersonateError`` when no target can serve the combination.
+
+    Parameters:
+        client: which client to impersonate, e.g. ``chrome``.
+        platform: which operating system the client should look like, e.g. ``windows``.
+        version: pin a specific version, e.g. ``136``. Defaults to the newest one.
+        strategy: how to choose among the matching targets.
+    """
+
+    client: ClientLiteral
+    platform: PlatformLiteral
+    version: str | None = None
+    strategy: StrategyLiteral = "latest"
 
 
 class FingerprintManager:

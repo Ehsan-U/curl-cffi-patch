@@ -9,12 +9,13 @@ import pytest
 from charset_normalizer import detect
 
 import curl_cffi
-from curl_cffi import Curl, CurlFollow, CurlOpt, requests
+from curl_cffi import Curl, CurlFollow, CurlOpt, FingerprintSpec, requests
 from curl_cffi.const import CurlECode, CurlInfo
 from curl_cffi.requests.errors import SessionClosed
 from curl_cffi.requests.exceptions import (
     CertificateVerifyError,
     HTTPError,
+    ImpersonateError,
     TooManyRedirects,
     UnrewindableBodyError,
 )
@@ -1291,3 +1292,75 @@ def test_session_auto_raise_for_status_disabled(server):
     r = s.get(str(server.url.copy_with(path="/status/404")))
     assert r.status_code == 404
     # Should not raise an exception
+
+
+def test_impersonate_spec_applies_platform_headers(server):
+    url = str(server.url.copy_with(path="/echo_headers"))
+    spec = FingerprintSpec(client="chrome", platform="windows")
+    r = requests.get(url, impersonate=spec)
+    headers = r.json()
+
+    assert headers["Sec-ch-ua-platform"] == ['"Windows"']
+    assert headers["Sec-ch-ua-mobile"] == ["?0"]
+    # The platform header replaces the target's own value instead of joining it.
+    assert len(headers["User-agent"]) == 1
+    assert "Windows NT 10.0" in headers["User-agent"][0]
+    assert "Chrome/151.0.0.0" in headers["User-agent"][0]
+    # The brand list still comes from the target, and still agrees with the user agent.
+    assert '"Google Chrome";v="151"' in headers["Sec-ch-ua"][0]
+
+
+def test_impersonate_spec_keeps_fingerprint_header_order(server):
+    url = str(server.url.copy_with(path="/echo_headers"))
+    spec = FingerprintSpec(client="chrome", platform="windows")
+    r = requests.get(url, impersonate=spec)
+    names = [name for name in r.json() if name != "Host"]
+
+    assert names[:5] == [
+        "Sec-ch-ua",
+        "Sec-ch-ua-mobile",
+        "Sec-ch-ua-platform",
+        "Upgrade-insecure-requests",
+        "User-agent",
+    ]
+
+
+def test_impersonate_spec_on_native_target(server):
+    """Version pinning reaches the C-side targets, whose headers we cannot edit."""
+    url = str(server.url.copy_with(path="/echo_headers"))
+    spec = FingerprintSpec(client="chrome", platform="windows", version="136")
+    headers = requests.get(url, impersonate=spec).json()
+
+    assert headers["Sec-ch-ua-platform"] == ['"Windows"']
+    assert len(headers["User-agent"]) == 1
+    assert "Windows NT 10.0" in headers["User-agent"][0]
+    assert "Chrome/136.0.0.0" in headers["User-agent"][0]
+
+
+def test_user_header_beats_the_platform_override(server):
+    url = str(server.url.copy_with(path="/echo_headers"))
+    r = requests.get(
+        url,
+        impersonate=FingerprintSpec(client="chrome", platform="windows"),
+        headers={"User-Agent": "mine"},
+    )
+    headers = r.json()
+
+    assert headers["User-agent"] == ["mine"]
+    assert headers["Sec-ch-ua-platform"] == ['"Windows"']
+
+
+def test_impersonate_spec_without_default_headers(server):
+    url = str(server.url.copy_with(path="/echo_headers"))
+    spec = FingerprintSpec(client="chrome", platform="windows")
+    headers = requests.get(url, impersonate=spec, default_headers=False).json()
+
+    assert "User-agent" not in headers
+    assert "Sec-ch-ua-platform" not in headers
+
+
+def test_impersonate_spec_unsupported_combination(server):
+    url = str(server.url.copy_with(path="/echo_headers"))
+    spec = FingerprintSpec(client="safari", platform="windows")
+    with pytest.raises(ImpersonateError, match="available platforms: ios, macos"):
+        requests.get(url, impersonate=spec)

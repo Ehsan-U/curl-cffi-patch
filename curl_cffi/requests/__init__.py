@@ -25,6 +25,7 @@ __all__ = [
     "WebSocketRetryStrategy",
     "WsCloseCode",
     "ExtraFingerprints",
+    "FingerprintSpec",
     "RetryStrategy",
     "CacheBackend",
     "FileCacheBackend",
@@ -40,6 +41,7 @@ from .cache import CacheBackend, FileCacheBackend
 from .cookies import Cookies, CookieTypes
 from .errors import RequestsError
 from .headers import Headers, HeaderTypes
+from ..fingerprints import FingerprintSpec
 from .impersonate import BrowserType, BrowserTypeLiteral, ExtraFingerprints
 from .models import Request, Response
 from .session import (
