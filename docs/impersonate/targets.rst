@@ -32,6 +32,7 @@ customized fingerprints. See below for details.
 - chrome151 :sup:`14` :sup:`15`
 - chrome99_android
 - chrome131_android :sup:`5`
+- chrome151_android :sup:`17`
 - edge99
 - edge101
 - safari153 :sup:`2` :sup:`9`
@@ -74,6 +75,7 @@ Notes:
 14. http3 support included.
 15. Captured on Linux with Chrome ``151.0.7922.75``.
 16. Captured on Ubuntu 25.10 with Firefox ``152.0.6``. Its TCP/TLS and HTTP/2 fingerprints are exact; the bundled QUIC backend cannot reproduce Firefox's TLS 1.3 cipher order, certificate-compression order, client connection-ID length, or extended-master-secret and renegotiation-info extensions over HTTP/3.
+17. Captured on Android with Chrome ``151.0.7922.83``. Its TLS and HTTP/2 fingerprints are byte for byte identical to the desktop ``chrome151`` target, only the headers differ. Chrome's user agent reduction reports ``Android 10; K`` on every device, so the target is not tied to the Android version it was captured on. HTTP/3 and QUIC parameters were not captured and are left unset.
 
 ``okhttp50a2`` is the wreq-derived OkHttp 5.0.0-alpha2 transport profile. OkHttp uses the
 platform TLS provider, so cipher availability and the resulting fingerprint can differ

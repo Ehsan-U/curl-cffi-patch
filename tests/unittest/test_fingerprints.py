@@ -4,7 +4,11 @@ import os
 import pytest
 
 import curl_cffi
-from curl_cffi.fingerprints import FingerprintManager, _get_default_config_dir
+from curl_cffi.fingerprints import (
+    BUILTIN_FINGERPRINTS,
+    FingerprintManager,
+    _get_default_config_dir,
+)
 from curl_cffi.requests.impersonate import resolve_latest_browser_type
 
 
@@ -278,3 +282,54 @@ def test_get_fingerprint_okhttp54_android11(monkeypatch, tmp_path):
         "os_version": "11",
         "h3_fingerprints": False,
     }
+
+
+def test_get_fingerprint_chrome151_android(monkeypatch, tmp_path):
+    monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
+
+    fingerprint = curl_cffi.get_fingerprint("chrome151_android")
+
+    assert fingerprint.client == "chrome"
+    assert fingerprint.client_version == "151"
+    assert fingerprint.os == "Android"
+    # Chrome's user agent reduction reports Android 10 on every device.
+    assert fingerprint.os_version == "10"
+    assert fingerprint.headers["sec-ch-ua-mobile"] == "?1"
+    assert fingerprint.headers["sec-ch-ua-platform"] == '"Android"'
+    assert "Android 10; K" in fingerprint.headers["User-Agent"]
+    assert "Mobile Safari" in fingerprint.headers["User-Agent"]
+    assert fingerprint.http2_settings == "1:65536;2:0;4:6291456;6:262144"
+    assert fingerprint.http2_window_update == 15663105
+    assert fingerprint.http2_stream_weight == 256
+    assert fingerprint.http2_stream_exclusive == 1
+    assert fingerprint.tls_permute_extensions is True
+    assert fingerprint.tls_supported_groups[0] == "X25519MLKEM768"
+
+
+def test_chrome_android_alias_resolves_to_chrome151(monkeypatch, tmp_path):
+    monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
+
+    assert resolve_latest_browser_type("chrome_android") == "chrome151_android"
+
+
+def test_chrome151_android_matches_desktop_chrome151_transport():
+    """The capture showed Android and desktop Chrome 151 share a TLS and HTTP/2 stack.
+
+    Only the headers differ, so a divergence here means one of the two was edited
+    without re-capturing the other.
+    """
+    android = BUILTIN_FINGERPRINTS["chrome151_android"]
+    desktop = BUILTIN_FINGERPRINTS["chrome151"]
+
+    assert android.tls_ciphers == desktop.tls_ciphers
+    assert android.tls_supported_groups == desktop.tls_supported_groups
+    assert android.tls_signature_hashes == desktop.tls_signature_hashes
+    assert android.tls_cert_compression == desktop.tls_cert_compression
+    assert android.tls_permute_extensions == desktop.tls_permute_extensions
+    assert android.tls_use_new_alps_codepoint == desktop.tls_use_new_alps_codepoint
+    assert android.http2_settings == desktop.http2_settings
+    assert android.http2_window_update == desktop.http2_window_update
+    assert android.http2_pseudo_headers_order == desktop.http2_pseudo_headers_order
+
+    assert android.headers["sec-ch-ua-mobile"] != desktop.headers["sec-ch-ua-mobile"]
+    assert android.headers["User-Agent"] != desktop.headers["User-Agent"]
