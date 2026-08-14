@@ -79,7 +79,30 @@ They’re concatenated in that exact order, with commas between fields. For exam
 
     771,4865-4866-4867-49195-49196,0-11-10-35-16-5,29-23-24,0
 
-Note that Chrome permutes the extension order on each request, so there is a new format called JA3N, which uses sorted extension_id list.
+Note that Chrome permutes the extension order for each new TLS handshake, so there is a new format called JA3N, which uses a sorted extension ID list.
+
+
+TLS extension permutation and connection reuse
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Chrome chooses a new extension order when it creates a TLS connection. Requests sent
+over an existing HTTP/2 or HTTP/3 connection do not perform another TLS handshake and
+therefore do not need another permutation.
+
+``CURLOPT_SSL_PERMUTE_EXTENSIONS`` follows this model: the option remains stable while
+BoringSSL chooses the order during creation of a new connection. This is compatible
+with libcurl's connection cache.
+
+Do not implement permutation by generating a new explicit
+``CURLOPT_HTTP3_TLS_EXTENSION_ORDER`` value for every request. The HTTP/3 TLS extension
+order is part of libcurl's primary SSL configuration comparison. Changing it makes the
+request appear to require a different TLS configuration, so libcurl correctly rejects
+the cached connection and creates a new one. At high concurrency this causes connection
+and file-descriptor growth even when the origin and proxy are unchanged.
+
+HTTP/3 permutation must instead be represented by a stable option and performed once
+inside creation of the QUIC/TLS connection. Tests for changes in this area should verify
+both the observed handshake permutation and connection reuse across repeated requests.
 
 The Akamai HTTP/2 fingerprint string encodes four client‐controlled protocol parameters, joined by the pipe character (|):
 
