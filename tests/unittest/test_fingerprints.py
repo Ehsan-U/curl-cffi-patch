@@ -4,7 +4,11 @@ import os
 import pytest
 
 import curl_cffi
-from curl_cffi.fingerprints import FingerprintManager, _get_default_config_dir
+from curl_cffi.fingerprints import (
+    Fingerprint,
+    FingerprintManager,
+    _get_default_config_dir,
+)
 from curl_cffi.requests.impersonate import resolve_latest_browser_type
 
 
@@ -253,3 +257,16 @@ def test_get_fingerprint_okhttp54_android11(monkeypatch, tmp_path):
         "os_version": "11",
         "h3_fingerprints": False,
     }
+
+
+def test_parse_fingerprints_keeps_tls_trust_anchors():
+    payload = {
+        "custom": {
+            "tls_trust_anchors": ["2.5.4.3", "2.5.4.10"],
+        }
+    }
+
+    fingerprint = FingerprintManager._parse_fingerprints(payload)["custom"]
+
+    assert fingerprint.tls_trust_anchors == ["2.5.4.3", "2.5.4.10"]
+    assert Fingerprint().tls_trust_anchors is None
