@@ -53,6 +53,7 @@ customized fingerprints. See below for details.
 - okhttp51_android11
 - okhttp54_android11
 - okhttp (alias for the newest captured OkHttp profile)
+- ios27
 
 Notes:
 
@@ -85,6 +86,20 @@ the versioned default User-Agent differs.
 
 Use ``okhttp`` to select the newest captured OkHttp profile. It currently resolves to
 ``okhttp54_android11``.
+
+``ios27`` is the CFNetwork/3896.100.1.2.1 TLS and HTTP/2 transport fingerprint
+captured from Truth Social build 497 on a user-reported iPhone 17 running iOS 27.
+It sets the captured Accept-Encoding default and the placeholder User-Agent
+``YourApp/1 CFNetwork/3896.100.1.2.1 Darwin/27.0.0``. Override ``YourApp/1`` with
+your app's name and build number. Other app-specific headers, cookies, and
+authorization remain caller-supplied. The capture establishes
+this CFNetwork profile, not every networking stack on iOS. The exact iOS build is
+unknown; TLS resumption and HTTP/3 were not validated by the capture.
+
+Use ``http_version="v2"`` for ordinary API requests. The app's streaming connections
+offered only HTTP/1.1; select ``http_version="v1"`` for that TLS ALPN behavior.
+The profile's ``tls_version="1.2"`` is the minimum TLS version, preserving the
+captured offer of both TLS 1.3 and TLS 1.2.
 
 
 Which target version to use?

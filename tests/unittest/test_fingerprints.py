@@ -167,6 +167,42 @@ def test_okhttp_alias_resolves_to_latest_captured_profile():
     assert resolve_latest_browser_type("okhttp") == "okhttp54_android11"
 
 
+def test_get_fingerprint_ios27(monkeypatch, tmp_path):
+    monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
+
+    fingerprint = curl_cffi.get_fingerprint("ios27")
+
+    assert fingerprint.tls_signature_hashes.count("rsa_pss_rsae_sha384") == 2
+    assert fingerprint.tls_session_ticket is False
+    assert fingerprint.tls_permute_extensions is False
+    assert fingerprint.headers == {
+        "Accept-Encoding": "gzip, deflate, br",
+        "User-Agent": "YourApp/1 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+    }
+    assert fingerprint.header_order == ""
+    assert fingerprint.split_cookies is False
+    assert next(
+        row for row in FingerprintManager.list_fingerprints()
+        if row["name"] == "ios27"
+    ) == {
+        "type": "builtin",
+        "name": "ios27",
+        "browser": "cfnetwork",
+        "version": "3896.100.1.2.1",
+        "os": "iOS",
+        "os_version": "27",
+        "h3_fingerprints": False,
+    }
+    fingerprint.tls_signature_hashes.clear()
+    fingerprint.headers.clear()
+    restored = curl_cffi.get_fingerprint("ios27")
+    assert restored.tls_signature_hashes.count("rsa_pss_rsae_sha384") == 2
+    assert restored.headers == {
+        "Accept-Encoding": "gzip, deflate, br",
+        "User-Agent": "YourApp/1 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+    }
+
+
 def test_get_fingerprint_okhttp51_android11(monkeypatch, tmp_path):
     monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
 

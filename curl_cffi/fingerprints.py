@@ -413,6 +413,57 @@ class Fingerprint:
 
 
 BUILTIN_FINGERPRINTS: dict[str, Fingerprint] = {
+    "ios27": Fingerprint(
+        client="cfnetwork",
+        client_version="3896.100.1.2.1",
+        os="iOS",
+        os_version="27",
+        http_version="v2",
+        tls_version="1.2",
+        tls_ciphers=[
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+        ],
+        tls_alpn=True,
+        tls_cert_compression=["zlib"],
+        tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "rsa_pss_rsae_sha256",
+            "rsa_pkcs1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "rsa_pss_rsae_sha384",
+            "rsa_pss_rsae_sha384",  # Duplicate observed in the app ClientHello.
+            "rsa_pkcs1_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha512",
+            "rsa_pkcs1_sha1",
+        ],
+        tls_key_shares_limit=2,
+        tls_supported_groups=["X25519MLKEM768", "X25519", "P-256", "P-384", "P-521"],
+        tls_extension_order="0-23-65281-10-11-16-5-13-18-51-45-43-27",
+        tls_grease=True,
+        tls_signed_cert_timestamps=True,
+        # Override YourApp/1 with the app's name/build to match native app headers.
+        headers={
+            "Accept-Encoding": "gzip, deflate, br",
+            "User-Agent": "YourApp/1 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+        },
+        http2_settings="2:0;4:2097152;3:100;9:1",
+        http2_window_update=10485760,
+        http2_pseudo_headers_order="m,s,p,a",
+        http2_no_priority=True,
+    ),
     "okhttp50a2": Fingerprint(
         client="okhttp",
         client_version="5.0.0-alpha2",

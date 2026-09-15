@@ -72,3 +72,53 @@ def test_impersonate_okhttp_alias_uses_okhttp54_android11():
 def test_impersonate_unknown():
     with pytest.raises(requests.RequestsError, match="not supported"):
         requests.get(JA3_URL, impersonate="unknown")
+
+
+@pytest.mark.parametrize("http_version", ["v2", "v1"])
+def test_impersonate_ios27(http_version):
+    data = requests.get(
+        PEET_URL,
+        impersonate="ios27",
+        http_version=http_version,
+        timeout=20,
+    ).json()
+
+    assert data["tls"]["ja3_hash"] == "71653fb41844e20e026311277527200b"
+    extensions = {item["name"]: item for item in data["tls"]["extensions"]}
+    assert extensions["signature_algorithms (13)"]["signature_algorithms"] == [
+        "ecdsa_secp256r1_sha256",
+        "rsa_pss_rsae_sha256",
+        "rsa_pkcs1_sha256",
+        "ecdsa_secp384r1_sha384",
+        "rsa_pss_rsae_sha384",
+        "rsa_pss_rsae_sha384",
+        "rsa_pkcs1_sha384",
+        "rsa_pss_rsae_sha512",
+        "rsa_pkcs1_sha512",
+        "rsa_pkcs1_sha1",
+    ]
+    assert extensions["compress_certificate (27)"]["algorithms"] == ["zlib (1)"]
+    shares = extensions["key_share (51)"]["shared_keys"]
+    assert len(shares) == 3
+    assert next(iter(shares[0])).startswith("TLS_GREASE")
+    assert len(shares[1]["X25519MLKEM768 (4588)"]) == 1216 * 2
+    assert len(shares[2]["X25519 (29)"]) == 32 * 2
+    protocols = extensions["application_layer_protocol_negotiation (16)"]["protocols"]
+    assert protocols == (["h2", "http/1.1"] if http_version == "v2" else ["http/1.1"])
+    if http_version == "v2":
+        assert data["http2"]["akamai_fingerprint"] == (
+            "2:0;4:2097152;3:100;9:1|10485760|0|m,s,p,a"
+        )
+        assert [f["frame_type"] for f in data["http2"]["sent_frames"]] == [
+            "SETTINGS", "WINDOW_UPDATE", "HEADERS",
+        ]
+        headers_frame = data["http2"]["sent_frames"][-1]
+        assert headers_frame["flags"] == ["EndStream (0x1)", "EndHeaders (0x4)"]
+        assert headers_frame["headers"] == [
+            ":method: GET",
+            ":scheme: https",
+            ":path: /api/all",
+            ":authority: tls.peet.ws",
+            "accept-encoding: gzip, deflate, br",
+            "user-agent: YourApp/1 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+        ]

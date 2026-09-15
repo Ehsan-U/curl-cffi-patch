@@ -51,6 +51,7 @@ BrowserTypeLiteral = Literal[
     "okhttp50a2",
     "okhttp51_android11",
     "okhttp54_android11",
+    "ios27",
     # alias
     "chrome",
     "edge",
@@ -174,6 +175,7 @@ class BrowserType(str, Enum):  # TODO: remove in version 1.x
     okhttp50a2 = "okhttp50a2"
     okhttp51_android11 = "okhttp51_android11"
     okhttp54_android11 = "okhttp54_android11"
+    ios27 = "ios27"
 
     # deprecated aliases
     safari15_3 = "safari15_3"
