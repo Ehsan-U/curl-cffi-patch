@@ -155,6 +155,18 @@ fingerprint endpoint labels this parameter GREASE because its number falls in a
 reserved pattern; it is a fixed captured parameter, not randomized GREASE.
 Parameter 29 is an empty RESET_STREAM_AT advertisement.
 
+Both parameters are preserved in the reference capture but intentionally omitted
+from ``firefox156_win``: the pinned transport cannot handle the corresponding
+ACK_FREQUENCY and RESET_STREAM_AT frames. Advertising support can cause otherwise
+valid HTTP/3 connections to fail when a server exercises either extension.
+HTTP/3 remains supported without these optional capabilities; its QUIC fingerprint
+therefore differs from Firefox 156 in these two parameters. HTTP/2 and Chrome's
+configuration are unchanged.
+
+Restore these advertisements only after implementing and validating the behavior,
+tracking upstream `ACK_FREQUENCY <https://github.com/ngtcp2/ngtcp2/pull/1348>`_
+and `reliable stream reset <https://github.com/ngtcp2/ngtcp2/pull/1097>`_.
+
 Build on Linux
 --------------
 
@@ -181,7 +193,7 @@ After the initial build, reinstall against the same archive with:
 .. code-block:: bash
 
     IMPERSONATE_BUILD_DIR=/path/to/windows-fingerprint-build/archive \
-      IMPERSONATE_LINK_TYPE=static uv pip install --reinstall-package curl-cffi-patch -e '.[test,dev]'
+      IMPERSONATE_LINK_TYPE=static uv pip install --reinstall-package curl-cffi-patch -e '.[test,dev,integration]'
 
 When switching native archives, use a fresh Python build directory so a cached
 extension cannot retain the previous library. Wheel/release builds must use the
@@ -220,7 +232,10 @@ exclude GREASE as required by the `JA4 specification
 <https://github.com/FoxIO-LLC/ja4/blob/main/technical_details/JA4.md>`_ and match the
 server-observed values.
 
-Run the capture comparison and local TLS key-share fallback tests after building:
+The ``integration`` extra supplies aioquic and h2 for the local protocol servers;
+the ordinary ``test`` extra used by wheel CI does not need these dependencies.
+The build helper installs all three extras. Run the capture comparison and local
+TLS key-share fallback tests after building:
 
 .. code-block:: bash
 
@@ -241,9 +256,10 @@ and rejection of changes after transmission.
 This reproduces the captured fresh-session request profile. It does not emulate
 Windows's TCP/IP stack or JavaScript, fonts, canvas, or GPU behavior.
 These are fresh-request fingerprints; the underlying transport remains ngtcp2.
-Packet scheduling and behavior after a peer exercises draft ACK_FREQUENCY or
-RESET_STREAM_AT are not reproduced or validated. Advertising those captured
-parameters does not implement Neqo's complete state machine.
+Packet scheduling and draft ACK_FREQUENCY/RESET_STREAM_AT behavior are not
+reproduced or validated. Their transport-parameter advertisements are deliberately
+omitted, as documented above; the profile does not implement Neqo's complete
+state machine.
 WebSockets, resumed-session fingerprints, 0-RTT, and site-specific browser state
 were not captured or validated. The Firefox GREASE ECH size is the captured baseline,
 not a general NSS inner-ClientHello padding implementation for every hostname

@@ -4,6 +4,7 @@ from contextlib import closing
 from pathlib import Path
 
 import pytest
+from aioquic.buffer import Buffer
 
 from curl_cffi import Curl, CurlError, CurlMime, CurlOpt, get_fingerprint, requests
 
@@ -27,6 +28,10 @@ def test_firefox_windows_cookies_multipart_and_reuse(browser_echo, http_version,
             assert "te" not in names
             assert dict(response["headers"])["alt-used"] == url.removeprefix("https://")  # noqa: E501
             assert response["quic_version"] == 0x6B3343CF
+            parameters = Buffer(data=bytes.fromhex(response["quic_transport_parameters"]))  # noqa: E501
+            while not parameters.eof():
+                assert parameters.pull_uint_var() not in (29, 0xFF02DE1A)
+                parameters.pull_bytes(parameters.pull_uint_var())
         else:
             assert dict(response["headers"])["te"] == "trailers"
             assert "alt-used" not in names
@@ -45,7 +50,7 @@ def test_firefox_windows_cookies_multipart_and_reuse(browser_echo, http_version,
 
 
 @pytest.mark.parametrize("connection", range(2))
-def test_firefox_windows_http3_matches_capture(connection):
+def test_firefox_windows_http3_matches_capture_except_unsupported_extensions(connection):  # noqa: E501
     expected = CAPTURE["http3_fingerprint"]
     data = requests.get("https://fp.impersonate.pro/api/http3", impersonate="firefox156_win", http_version="v3only", timeout=30).json()  # noqa: E501
     assert data["protocol"] == "http3"
@@ -60,9 +65,10 @@ def test_firefox_windows_http3_matches_capture(connection):
         assert extensions[int(identifier)] == value
     assert extensions[65037]["payload"]["length"] == expected["ech_grease_payload_size"]  # noqa: E501
     parameters = [{"id": item["id"], "value": "AUTO" if item["id"] == 15 else item["value"]} for item in extensions[57]]  # noqa: E501
-    assert parameters == expected["transport_parameters"]
-    # 0xff02de1a is min_ack_delay, despite this endpoint labeling it GREASE.
-    assert next(item["value"] for item in parameters if item["id"] == 0xFF02DE1A) == "0x43e8"  # noqa: E501
+    # Preserve the real capture; only these two unsupported advertisements differ.
+    assert {29, 0xFF02DE1A} <= {item["id"] for item in expected["transport_parameters"]}  # noqa: E501
+    assert not {29, 0xFF02DE1A} & {item["id"] for item in parameters}
+    assert parameters == [item for item in expected["transport_parameters"] if item["id"] not in (29, 0xFF02DE1A)]  # noqa: E501
 
 
 @pytest.mark.parametrize("http_version", ["v2", "v3only"])

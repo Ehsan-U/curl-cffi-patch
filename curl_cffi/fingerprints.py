@@ -700,9 +700,12 @@ BUILTIN_FINGERPRINTS: dict[str, Fingerprint] = {
         quic_initial_packet_number=0,
         quic_firefox_initial_packet_number=True,
         quic_v2=True,
+        # Omit RESET_STREAM_AT (29) and min_ack_delay (0xff02de1a): unsupported.
+        # https://github.com/ngtcp2/ngtcp2/pull/1097
+        # https://github.com/ngtcp2/ngtcp2/pull/1348
         quic_transport_parameters=(
             "1:30000;4:25165824;5:12582912;6:1048576;7:1048576;8:100;9:100;"
-            "11:20;14:8;15:AUTO;17:1@GREASE,1798521807,1;29;4278378010:1000;32:65535"
+            "11:20;14:8;15:AUTO;17:1@GREASE,1798521807,1;32:65535"
         ),
     ),
     "ios27": Fingerprint(

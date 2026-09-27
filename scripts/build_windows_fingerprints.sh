@@ -41,4 +41,4 @@ ar rcs "$archive_dir/libcurl-impersonate.a" "$archive_dir/libcurl-impersonate.fu
 cp -a "$native_prefix/include/curl" "$archive_dir/include/"
 
 cd "$project_root"
-IMPERSONATE_BUILD_DIR="$archive_dir" IMPERSONATE_LINK_TYPE=static uv pip install --no-cache --reinstall-package curl-cffi-patch -e '.[test,dev]'
+IMPERSONATE_BUILD_DIR="$archive_dir" IMPERSONATE_LINK_TYPE=static uv pip install --no-cache --reinstall-package curl-cffi-patch -e '.[test,dev,integration]'

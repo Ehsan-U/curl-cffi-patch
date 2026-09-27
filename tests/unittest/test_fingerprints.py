@@ -322,4 +322,4 @@ def test_firefox_windows_http3_capabilities_are_protocol_specific():
     assert "mldsa44" in fingerprint.http3_tls_signature_hashes
     assert fingerprint.quic_firefox_initial_packet_number is True
     assert fingerprint.quic_v2 is True
-    assert "4278378010:1000" in fingerprint.quic_transport_parameters
+    assert not {"29", "4278378010"} & {item.split(":", 1)[0] for item in fingerprint.quic_transport_parameters.split(";")}  # noqa: E501
