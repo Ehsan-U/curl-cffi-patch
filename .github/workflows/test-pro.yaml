@@ -1,14 +1,6 @@
 name: Test pro features
 on:
-  push:
-    branches:
-      - main
-      - bugfix/*
-      - feature/*
-      - release/*
-      - chore/*
-    tags:
-      - v*
+  workflow_dispatch:
 
 permissions:
   contents: write
