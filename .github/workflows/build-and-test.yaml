@@ -2,92 +2,64 @@ name: Build and test
 on:
   workflow_call:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
-      - bugfix/*
-      - feature/*
-      - release/*
-      - chore/*
-      - security/*
+    branches: [main]
 
 permissions:
   contents: read
 
+concurrency:
+  group: wheels-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   sdist:
-    name: Build sdist wheel
+    name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-
-    - name: build sdist
-      run: |
-        make preprocess
-        pip install build
-        python -m build --sdist
-        pip install ./dist/*.tar.gz
-
-    - name: upload artifacts
-      uses: actions/upload-artifact@v4  # https://github.com/actions/upload-artifact/issues/478
-      with:
-        name: curl_cffi-${{ github.sha }}-sdist.zip
-        path: ./dist/*.tar.gz
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.18"
+          python-version: "3.11"
+      - name: Build sdist without a host-specific native library
+        run: uv build --sdist
+        env:
+          CURL_CFFI_BUILD_SDIST: "1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: curl_cffi-${{ github.sha }}-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
 
   bdist:
-    name: Build bdist wheels and test
+    name: Patched wheels (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
     steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-
-    # macOS make is too old
-    - if: runner.os == 'macOS'
-      run: |
-        brew install make automake libtool
-
-    - name: Build and test wheels
-      uses: pypa/cibuildwheel@v3.3.1
-
-    # - name: Setup tmate session
-    #   uses: mxschmitt/action-tmate@v3
-
-    - uses: actions/upload-artifact@v4  # https://github.com/actions/upload-artifact/issues/478
-      with:
-        name: curl_cffi-${{ github.sha }}-${{ matrix.os }}.zip
-        path: ./wheelhouse/*.whl
-
-  # Make our build process future-proof
-  build_latest:
-    name: Build bdist on latest OSes
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # For linux, it's built inside a container, no need to test for latest versions.
-        os: [macos-latest]
-    steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-
-    # macOS make is too old
-    - if: runner.os == 'macOS'
-      run: |
-        brew install make automake libtool
-
-    - name: Build and test wheels
-      uses: pypa/cibuildwheel@v3.3.1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.18"
+          python-version: "3.11"
+      - name: Install macOS native build tools
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja make automake libtool
+      - name: Build and test installed wheels with patched native libraries
+        uses: pypa/cibuildwheel@v3.3.1
+      - name: Verify HTTP/2 and HTTP/3 from the installed abi3 wheel
+        run: |
+          uv venv --python 3.11 "$RUNNER_TEMP/profile-wheel-test"
+          uv run --no-project python scripts/test_installed_wheel.py wheelhouse "$RUNNER_TEMP/profile-wheel-test"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: curl_cffi-${{ github.sha }}-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error

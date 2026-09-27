@@ -1,0 +1,199 @@
+{
+  "chrome153_win": {
+    "browser_version": "153.0.8010.48",
+    "os": "Windows 11 Pro 25H2, build 26200.8037",
+    "captured_at": "2026-09-16",
+    "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,35-27-45-11-43-10-16-17613-18-5-51-65281-0-23-65037-51764-13,4588-29-23-24,0",
+    "ja3_hash": "7a77b6244ab11765f22d401ea4955995",
+    "ja4": "t13d1517h2_8daaf6152771_cb7bf5808d99",
+    "peetprint": "GREASE-772-771|2-1.1|GREASE-4588-29-23-24|GREASE-2308-2309-2310-1027-2052-1025-1283-2053-1281-2054-1537|1|2|GREASE-4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53|0-10-11-13-16-17613-18-23-27-35-43-45-5-51-51764-65037-65281-GREASE-GREASE",
+    "peetprint_hash": "fc97c1cdfb1409c9a9326c1b726d1dee",
+    "http2": {
+      "akamai_fingerprint": "1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p",
+      "akamai_fingerprint_hash": "52d84b11737d980aef856699f885ca86",
+      "sent_frames": [
+        {
+          "frame_type": "SETTINGS",
+          "length": 24,
+          "settings": [
+            "HEADER_TABLE_SIZE = 65536",
+            "ENABLE_PUSH = 0",
+            "INITIAL_WINDOW_SIZE = 6291456",
+            "MAX_HEADER_LIST_SIZE = 262144"
+          ]
+        },
+        {
+          "frame_type": "WINDOW_UPDATE",
+          "length": 4,
+          "increment": 15663105
+        },
+        {
+          "frame_type": "HEADERS",
+          "stream_id": 1,
+          "length": 458,
+          "headers": [
+            ":method: GET",
+            ":authority: tls.peet.ws",
+            ":scheme: https",
+            ":path: /api/all",
+            "sec-ch-ua: \"Google Chrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+            "sec-ch-ua-mobile: ?0",
+            "sec-ch-ua-platform: \"Windows\"",
+            "upgrade-insecure-requests: 1",
+            "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+            "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "sec-fetch-site: none",
+            "sec-fetch-mode: navigate",
+            "sec-fetch-user: ?1",
+            "sec-fetch-dest: document",
+            "accept-encoding: gzip, deflate, br, zstd",
+            "accept-language: en-US,en;q=0.9",
+            "priority: u=0, i"
+          ],
+          "flags": [
+            "EndStream (0x1)",
+            "EndHeaders (0x4)",
+            "Priority (0x20)"
+          ],
+          "priority": {
+            "weight": 256,
+            "depends_on": 0,
+            "exclusive": 1
+          }
+        }
+      ]
+    },
+    "key_shares": [
+      {
+        "group": "GREASE",
+        "length": 1
+      },
+      {
+        "group": "X25519MLKEM768 (4588)",
+        "length": 1216
+      },
+      {
+        "group": "X25519 (29)",
+        "length": 32
+      }
+    ],
+    "reuse_x25519_key_share": false,
+    "ech_grease_payload_sizes": [
+      144,
+      176,
+      208,
+      240
+    ],
+    "trust_anchor_ids": [
+      "82df130201",
+      "82df130206",
+      "82df13020d",
+      "82df13020e",
+      "82df13020f",
+      "82df130212",
+      "82df130213",
+      "82df130214",
+      "839a648c9b2d0107",
+      "839a648c9b2d0108",
+      "839a648c9b2d0109",
+      "839a648c9b2d010a",
+      "839a648c9b2d010b",
+      "839a648c9b2d010c",
+      "839a648c9b2d010d",
+      "839a648c9b2d0112",
+      "839a648c9b2d0113",
+      "d6790901",
+      "d6790904",
+      "d6790905",
+      "d6790906",
+      "d6790907",
+      "d6790908",
+      "d679090a",
+      "d679090b",
+      "d679090c",
+      "d679090d",
+      "d679090f"
+    ]
+  },
+  "firefox156_win": {
+    "browser_version": "156.0",
+    "os": "Windows 11 Pro 25H2, build 26200.8037",
+    "captured_at": "2026-09-16",
+    "ja3": "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,4588-29-23-24-25,0",
+    "ja3_hash": "9d42e90b0225e779f03141ddcd699df2",
+    "ja4": "t13d1517h2_8daaf6152771_3cbfd9057e0d",
+    "peetprint": "772-771|2-1.1|4588-29-23-24-25|1027-1283-1539-2052-2053-2054-1025-1281-1537-515-513|1|1-2-3|4865-4867-4866-49195-49199-52393-52392-49196-49200-49171-49172-156-157-47-53|0-10-11-13-16-18-23-27-28-34-35-43-45-5-51-65037-65281",
+    "peetprint_hash": "a4bbbc7e3adf3db97d276fd0adb1efc4",
+    "http2": {
+      "akamai_fingerprint": "1:65536;2:0;4:131072;5:16384|12517377|0|m,p,a,s",
+      "akamai_fingerprint_hash": "6ea73faa8fc5aac76bded7bd238f6433",
+      "sent_frames": [
+        {
+          "frame_type": "SETTINGS",
+          "length": 24,
+          "settings": [
+            "HEADER_TABLE_SIZE = 65536",
+            "ENABLE_PUSH = 0",
+            "INITIAL_WINDOW_SIZE = 131072",
+            "MAX_FRAME_SIZE = 16384"
+          ]
+        },
+        {
+          "frame_type": "WINDOW_UPDATE",
+          "length": 4,
+          "increment": 12517377
+        },
+        {
+          "frame_type": "HEADERS",
+          "stream_id": 3,
+          "length": 286,
+          "headers": [
+            ":method: GET",
+            ":path: /api/all",
+            ":authority: tls.peet.ws",
+            ":scheme: https",
+            "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) Gecko/20100101 Firefox/156.0",
+            "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language: en-US,en;q=0.9",
+            "accept-encoding: gzip, deflate, br, zstd",
+            "upgrade-insecure-requests: 1",
+            "sec-fetch-dest: document",
+            "sec-fetch-mode: navigate",
+            "sec-fetch-site: none",
+            "sec-fetch-user: ?1",
+            "priority: u=0, i",
+            "te: trailers"
+          ],
+          "flags": [
+            "EndStream (0x1)",
+            "EndHeaders (0x4)",
+            "Priority (0x20)"
+          ],
+          "priority": {
+            "weight": 42,
+            "depends_on": 0,
+            "exclusive": 0
+          }
+        }
+      ]
+    },
+    "key_shares": [
+      {
+        "group": "X25519MLKEM768 (4588)",
+        "length": 1216
+      },
+      {
+        "group": "X25519 (29)",
+        "length": 32
+      },
+      {
+        "group": "P-256 (23)",
+        "length": 65
+      }
+    ],
+    "reuse_x25519_key_share": true,
+    "ech_grease_payload_sizes": [
+      240
+    ]
+  }
+}

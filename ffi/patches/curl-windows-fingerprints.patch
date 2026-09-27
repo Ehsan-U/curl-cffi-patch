@@ -1,0 +1,818 @@
+--- a/include/curl/curl.h
++++ b/include/curl/curl.h
+@@ -2427,6 +2427,18 @@
+ 
+   /* curl-impersonate: Comma-separated TLS trust anchor relative OIDs. */
+   CURLOPT(CURLOPT_TLS_TRUST_ANCHORS, CURLOPTTYPE_STRINGPOINT, 1040),
++
++  /* Add a GREASE value to the TLS signature_algorithms extension. */
++  CURLOPT(CURLOPT_TLS_GREASE_SIGNATURE_ALGORITHMS, CURLOPTTYPE_LONG, 1041),
++
++  /* First client HTTP/2 stream ID; zero keeps nghttp2's default. */
++  CURLOPT(CURLOPT_HTTP2_FIRST_STREAM_ID, CURLOPTTYPE_LONG, 1042),
++
++  /* Reuse hybrid X25519 key material for the standalone X25519 share. */
++  CURLOPT(CURLOPT_TLS_REUSE_X25519_KEY_SHARE, CURLOPTTYPE_LONG, 1043),
++
++  /* GREASE ECH payload size; zero keeps randomized padding. */
++  CURLOPT(CURLOPT_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOPTTYPE_LONG, 1044),
+ 
+   CURLOPT_LASTENTRY /* the last unused */
+ } CURLoption;
+--- a/lib/urldata.h
++++ b/lib/urldata.h
+@@ -1234,6 +1234,8 @@
+   BIT(ssl_permute_extensions); /* TLS Permute extensions */
+   CURLhttp3sslpermute http3_ssl_permute_extensions;
+   BIT(tls_grease);  /* TLS grease? */
++  BIT(tls_grease_signature_algorithms);
++  BIT(tls_reuse_x25519_key_share);
+   BIT(tls_key_usage_no_check);  /* TLS key_usage_check? */
+   BIT(tls_signed_cert_timestamps);  /* TLS signed cert timestamps? */
+   BIT(tls_status_request);  /* TLS status request */
+@@ -1265,8 +1267,10 @@
+   BIT(ws_no_auto_pong);
+ #endif
+   int http2_window_update;
++  int http2_first_stream_id;
+   int tls_record_size_limit;
+   int tls_key_shares_limit;
++  int tls_ech_grease_payload_size;
+   BIT(http2_no_priority);
+   BIT(post301); /* keep POSTs as POSTs after a 301 request */
+   BIT(post302); /* keep POSTs as POSTs after a 302 request */
+--- a/lib/setopt.c
++++ b/lib/setopt.c
+@@ -899,6 +899,17 @@
+   case CURLOPT_TLS_GREASE:
+     s->tls_grease = enabled;
+     break;
++  case CURLOPT_TLS_ECH_GREASE_PAYLOAD_SIZE:
++    if(arg < 0 || arg > 65535 - 42 || (arg && arg < 16))
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    s->tls_ech_grease_payload_size = (int)arg;
++    break;
++  case CURLOPT_TLS_REUSE_X25519_KEY_SHARE:
++    s->tls_reuse_x25519_key_share = enabled;
++    break;
++  case CURLOPT_TLS_GREASE_SIGNATURE_ALGORITHMS:
++    s->tls_grease_signature_algorithms = enabled;
++    break;
+   case CURLOPT_TLS_KEY_USAGE_NO_CHECK:
+     s->tls_key_usage_no_check = enabled;
+     break;
+@@ -1234,6 +1245,15 @@
+   case CURLOPT_STREAM_EXCLUSIVE:
+ #ifdef USE_HTTP2
+     s->priority.exclusive = (int)arg;
++    break;
++#else
++    return CURLE_NOT_BUILT_IN;
++#endif
++  case CURLOPT_HTTP2_FIRST_STREAM_ID:
++#ifdef USE_HTTP2
++    if(arg < 0 || arg > 0x7fffffffL || (arg && !(arg & 1)))
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    s->http2_first_stream_id = (int)arg;
+     break;
+ #else
+     return CURLE_NOT_BUILT_IN;
+--- a/lib/easyoptions.c
++++ b/lib/easyoptions.c
+@@ -136,6 +136,7 @@
+   { "HSTS_CTRL", CURLOPT_HSTS_CTRL, CURLOT_LONG, 0 },
+   { "HTTP09_ALLOWED", CURLOPT_HTTP09_ALLOWED, CURLOT_LONG, 0 },
+   { "HTTP200ALIASES", CURLOPT_HTTP200ALIASES, CURLOT_SLIST, 0 },
++  { "HTTP2_FIRST_STREAM_ID", CURLOPT_HTTP2_FIRST_STREAM_ID, CURLOT_LONG, 0 },
+   { "HTTP2_NO_PRIORITY", CURLOPT_HTTP2_NO_PRIORITY, CURLOT_LONG, 0 },
+   { "HTTP2_PSEUDO_HEADERS_ORDER", CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER,
+     CURLOT_STRING, 0 },
+@@ -389,11 +390,15 @@
+   { "TLS_DELEGATED_CREDENTIALS", CURLOPT_TLS_DELEGATED_CREDENTIALS,
+     CURLOT_STRING, 0 },
+   { "TLS_EXTENSION_ORDER", CURLOPT_TLS_EXTENSION_ORDER, CURLOT_STRING, 0 },
++  { "TLS_ECH_GREASE_PAYLOAD_SIZE", CURLOPT_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOT_LONG, 0 },
+   { "TLS_GREASE", CURLOPT_TLS_GREASE, CURLOT_LONG, 0 },
++  { "TLS_GREASE_SIGNATURE_ALGORITHMS", CURLOPT_TLS_GREASE_SIGNATURE_ALGORITHMS,
++    CURLOT_LONG, 0 },
+   { "TLS_KEY_SHARES_LIMIT", CURLOPT_TLS_KEY_SHARES_LIMIT, CURLOT_LONG, 0 },
+   { "TLS_KEY_USAGE_NO_CHECK", CURLOPT_TLS_KEY_USAGE_NO_CHECK,
+     CURLOT_LONG, 0 },
+   { "TLS_RECORD_SIZE_LIMIT", CURLOPT_TLS_RECORD_SIZE_LIMIT, CURLOT_LONG, 0 },
++  { "TLS_REUSE_X25519_KEY_SHARE", CURLOPT_TLS_REUSE_X25519_KEY_SHARE, CURLOT_LONG, 0 },
+   { "TLS_SIGNED_CERT_TIMESTAMPS", CURLOPT_TLS_SIGNED_CERT_TIMESTAMPS,
+     CURLOT_LONG, 0 },
+   { "TLS_STATUS_REQUEST", CURLOPT_TLS_STATUS_REQUEST, CURLOT_LONG, 0 },
+@@ -439,6 +444,6 @@
+  */
+ int Curl_easyopts_check(void)
+ {
+-  return (CURLOPT_LASTENTRY % 10000) != (1040 + 1);
++  return (CURLOPT_LASTENTRY % 10000) != (1044 + 1);
+ }
+ #endif
+--- a/lib/vtls/vtls_config.h
++++ b/lib/vtls/vtls_config.h
+@@ -65,6 +65,9 @@
+   BIT(verifyhost);       /* set TRUE if CN/SAN must match hostname */
+   BIT(verifystatus);     /* set TRUE if certificate status must be checked */
+   BIT(cache_session);    /* cache session or not */
++  BIT(grease_signature_algorithms);
++  BIT(reuse_x25519_key_share);
++  uint16_t ech_grease_payload_size;
+   BIT(enable_ticket);    /* enable the TLS session ticket extension */
+   BIT(http3_ssl_permute_extensions); /* HTTP/3 TLS extension permutation */
+   BIT(deep_copy);        /* members are deep copies, eg. owned here */
+--- a/lib/vtls/vtls_config.c
++++ b/lib/vtls/vtls_config.c
+@@ -204,6 +204,9 @@
+      (c1->verifyhost == c2->verifyhost) &&
+      (c1->verifystatus == c2->verifystatus) &&
+      (c1->enable_ticket == c2->enable_ticket) &&
++     (c1->grease_signature_algorithms == c2->grease_signature_algorithms) &&
++     (c1->reuse_x25519_key_share == c2->reuse_x25519_key_share) &&
++     (c1->ech_grease_payload_size == c2->ech_grease_payload_size) &&
+      (c1->http3_ssl_permute_extensions ==
+       c2->http3_ssl_permute_extensions) &&
+      blobcmp(c1->cert_blob, c2->cert_blob) &&
+@@ -268,6 +271,9 @@
+   dest->verifystatus = source->verifystatus;
+   dest->cache_session = source->cache_session;
+   dest->enable_ticket = source->enable_ticket;
++  dest->grease_signature_algorithms = source->grease_signature_algorithms;
++  dest->reuse_x25519_key_share = source->reuse_x25519_key_share;
++  dest->ech_grease_payload_size = source->ech_grease_payload_size;
+   dest->http3_ssl_permute_extensions =
+     source->http3_ssl_permute_extensions;
+   dest->ssl_options = source->ssl_options;
+@@ -378,6 +384,11 @@
+     data->set.str[STRING_HTTP3_TLS_EXTENSION_ORDER];
+   sslc->primary.enable_ticket = data->set.ssl_enable_ticket;
+   sslc->primary.trust_anchors = data->set.str[STRING_TLS_TRUST_ANCHORS];
++  sslc->primary.grease_signature_algorithms =
++    data->set.tls_grease_signature_algorithms;
++  sslc->primary.reuse_x25519_key_share = data->set.tls_reuse_x25519_key_share;
++  sslc->primary.ech_grease_payload_size =
++    (uint16_t)data->set.tls_ech_grease_payload_size;
+   sslc->primary.http3_ssl_permute_extensions =
+     Curl_ssl_http3_permute_extensions(data);
+ 
+--- a/lib/vtls/vtls_scache.c
++++ b/lib/vtls/vtls_scache.c
+@@ -268,6 +268,21 @@
+   }
+   if(!ssl->enable_ticket) {
+     result = curlx_dyn_add(&buf, ":NOTICKET");
++    if(result)
++      goto out;
++  }
++  if(ssl->grease_signature_algorithms && peer->transport != TRNSPRT_QUIC) {
++    result = curlx_dyn_add(&buf, ":SIGGREASE");
++    if(result)
++      goto out;
++  }
++  if(ssl->reuse_x25519_key_share && peer->transport != TRNSPRT_QUIC) {
++    result = curlx_dyn_add(&buf, ":REUSEX25519");
++    if(result)
++      goto out;
++  }
++  if(ssl->ech_grease_payload_size && peer->transport != TRNSPRT_QUIC) {
++    result = curlx_dyn_addf(&buf, ":ECHGREASE-%u", ssl->ech_grease_payload_size);
+     if(result)
+       goto out;
+   }
+--- a/lib/vtls/openssl.c
++++ b/lib/vtls/openssl.c
+@@ -4457,6 +4457,15 @@
+   else if(data->set.tls_grease)
+     SSL_CTX_set_grease_enabled(octx->ssl_ctx, 1);
+ 
++  SSL_CTX_set_grease_sigalgs_enabled(octx->ssl_ctx,
++    conn_config->grease_signature_algorithms && peer->transport != TRNSPRT_QUIC);
++
++  SSL_CTX_set_reuse_x25519_key_share(octx->ssl_ctx,
++    conn_config->reuse_x25519_key_share && peer->transport != TRNSPRT_QUIC);
++
++  SSL_CTX_set_ech_grease_payload_size(octx->ssl_ctx,
++    peer->transport != TRNSPRT_QUIC ? conn_config->ech_grease_payload_size : 0);
++
+   if(conn_config->trust_anchors) {
+     CURLcode result = set_trust_anchors(data, octx->ssl_ctx,
+                                         conn_config->trust_anchors);
+--- a/lib/http2.c
++++ b/lib/http2.c
+@@ -2677,6 +2677,15 @@
+    *                                    FIREFOX_DEFAULT_STREAM_ID);
+    */
+ 
++  if(data->set.http2_first_stream_id) {
++    rc = nghttp2_session_set_next_stream_id(ctx->h2,
++                                           data->set.http2_first_stream_id);
++    if(rc) {
++      result = CURLE_HTTP2;
++      goto out;
++    }
++  }
++
+   /* all set, traffic will be send on connect */
+   result = CURLE_OK;
+   CURL_TRC_CF(data, cf, "[0] created h2 session%s",
+--- a/include/curl/curl.h
++++ b/include/curl/curl.h
+@@ -2439,6 +2439,9 @@
+ 
+   /* GREASE ECH payload size; zero keeps randomized padding. */
+   CURLOPT(CURLOPT_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOPTTYPE_LONG, 1044),
++
++  /* Initial QUIC packet number in each packet number space. */
++  CURLOPT(CURLOPT_QUIC_INITIAL_PACKET_NUMBER, CURLOPTTYPE_LONG, 1045),
+ 
+   CURLOPT_LASTENTRY /* the last unused */
+ } CURLoption;
+--- a/lib/easyoptions.c
++++ b/lib/easyoptions.c
+@@ -277,6 +277,7 @@
+   { "PUT", CURLOPT_PUT, CURLOT_LONG, 0 },
+   { "QUICK_EXIT", CURLOPT_QUICK_EXIT, CURLOT_LONG, 0 },
+   { "QUIC_CID_LENGTH", CURLOPT_QUIC_CID_LENGTH, CURLOT_STRING, 0 },
++  { "QUIC_INITIAL_PACKET_NUMBER", CURLOPT_QUIC_INITIAL_PACKET_NUMBER, CURLOT_LONG, 0 },
+   { "QUIC_TRANSPORT_PARAMETERS", CURLOPT_QUIC_TRANSPORT_PARAMETERS,
+     CURLOT_STRING, 0 },
+   { "QUOTE", CURLOPT_QUOTE, CURLOT_SLIST, 0 },
+@@ -444,6 +445,6 @@
+  */
+ int Curl_easyopts_check(void)
+ {
+-  return (CURLOPT_LASTENTRY % 10000) != (1044 + 1);
++  return (CURLOPT_LASTENTRY % 10000) != (1045 + 1);
+ }
+ #endif
+--- a/lib/mime.c
++++ b/lib/mime.c
+@@ -61,6 +61,13 @@
+   if(easy)
+     form_boundary = easy->set.str[STRING_FORM_BOUNDARY];
+ 
++  if(form_boundary && curl_strequal(form_boundary, "webkit4")) {
++    static const char prefix[] = "----WebKitFormBoundary";
++    memcpy(mime->boundary, prefix, sizeof(prefix) - 1);
++    return Curl_rand_alnum(easy,
++                           (unsigned char *)&mime->boundary[sizeof(prefix) - 1],
++                           MIME_WEBKIT_BOUNDARY_CHARS + 1);
++  }
+   if(form_boundary && curl_strequal(form_boundary, "webkit")) {
+     memcpy(mime->boundary, MIME_WEBKIT_BOUNDARY_PREFIX,
+            sizeof(MIME_WEBKIT_BOUNDARY_PREFIX) - 1);
+--- a/lib/setopt.c
++++ b/lib/setopt.c
+@@ -103,6 +103,7 @@
+ static bool setopt_valid_form_boundary(const char *value)
+ {
+   return curl_strequal(value, "webkit") ||
++         curl_strequal(value, "webkit4") ||
+          curl_strequal(value, "firefox");
+ }
+ 
+@@ -1249,6 +1250,11 @@
+ #else
+     return CURLE_NOT_BUILT_IN;
+ #endif
++  case CURLOPT_QUIC_INITIAL_PACKET_NUMBER:
++    if(arg < 0 || arg > 0x7fffffffL)
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    s->quic_initial_packet_number = (uint32_t)arg;
++    break;
+   case CURLOPT_HTTP2_FIRST_STREAM_ID:
+ #ifdef USE_HTTP2
+     if(arg < 0 || arg > 0x7fffffffL || (arg && !(arg & 1)))
+--- a/lib/urldata.h
++++ b/lib/urldata.h
+@@ -1268,6 +1268,7 @@
+ #endif
+   int http2_window_update;
+   int http2_first_stream_id;
++  uint32_t quic_initial_packet_number;
+   int tls_record_size_limit;
+   int tls_key_shares_limit;
+   int tls_ech_grease_payload_size;
+--- a/lib/vquic/cf-ngtcp2-cmn.c
++++ b/lib/vquic/cf-ngtcp2-cmn.c
+@@ -357,6 +357,7 @@
+ #define QUIC_TP_GREASE_ID_BASE              UINT64_C(27)
+ #define QUIC_TP_GREASE_ID_STEP              UINT64_C(31)
+ #define QUIC_TP_GREASE_VALUE_MAXLEN         8
++#define QUIC_TP_CHROME_GREASE_VALUE_MAXLEN 16
+ #define QUIC_INITIAL_RTT_US_BASE             UINT64_C(333000)
+ #define QUIC_INITIAL_RTT_US_JITTER           UINT64_C(50000)
+ 
+@@ -413,7 +414,7 @@
+ static CURLcode quic_generate_grease_tp(struct Curl_easy *data,
+                                         uint64_t *pid,
+                                         unsigned char *value,
+-                                        size_t *vlen)
++                                        size_t *vlen, bool chrome)
+ {
+   uint64_t n;
+   uint64_t max_n = (QUIC_VARINT_MAX - QUIC_TP_GREASE_ID_BASE) /
+@@ -432,7 +433,8 @@
+   if(result)
+     return result;
+ 
+-  *vlen = (size_t)(lenrnd % QUIC_TP_GREASE_VALUE_MAXLEN) + 1;
++  *vlen = chrome ? (size_t)(lenrnd % QUIC_TP_CHROME_GREASE_VALUE_MAXLEN) :
++    (size_t)(lenrnd % QUIC_TP_GREASE_VALUE_MAXLEN) + 1;
+-  return Curl_rand(data, value, *vlen);
++  return *vlen ? Curl_rand(data, value, *vlen) : CURLE_OK;
+ }
+ 
+@@ -615,6 +617,7 @@
+   char *p;
+   char *sep;
+   size_t available_count = 0;
++  bool shuffle_available = FALSE;
+   uint32_t ver;
+ 
+   if(!value_str || !*value_str)
+@@ -632,6 +635,10 @@
+   *sep = '\0';
+   chosen_tok = tmp;
+   available_list = sep + 1;
++  if(curl_strnequal(available_list, "SHUFFLE:", 8)) {
++    shuffle_available = TRUE;
++    available_list += 8;
++  }
+ 
+   curlx_dyn_init(&vb, 64);
+   result = quic_parse_version_token(chosen_tok, FALSE, data, &ver);
+@@ -667,6 +674,26 @@
+     goto out;
+   }
+ 
++  if(shuffle_available && available_count > 1) {
++    char *versions = curlx_dyn_ptr(&vb) + 4;
++    size_t i;
++    for(i = available_count; i > 1; i--) {
++      uint32_t random;
++      uint32_t threshold = (uint32_t)(0 - (uint32_t)i) % (uint32_t)i;
++      size_t selected;
++      unsigned char temporary[4];
++      do {
++        result = Curl_rand(data, (unsigned char *)&random, sizeof(random));
++        if(result)
++          goto out;
++      } while(random < threshold);
++      selected = random % i;
++      memcpy(temporary, versions + 4 * (i - 1), 4);
++      memcpy(versions + 4 * (i - 1), versions + 4 * selected, 4);
++      memcpy(versions + 4 * selected, temporary, 4);
++    }
++  }
++
+   result = quic_raw_append_param_bytes(raw, id,
+                                        (const uint8_t *)curlx_dyn_ptr(&vb),
+                                        curlx_dyn_len(&vb));
+@@ -751,12 +778,14 @@
+     setting = tokens[i];
+     colon = strchr(setting, ':');
+ 
+-    if(curl_strequal(setting, "GREASE")) {
+-      unsigned char grease_value[QUIC_TP_GREASE_VALUE_MAXLEN];
++    if(curl_strequal(setting, "GREASE") ||
++       curl_strequal(setting, "GREASE_CHROME")) {
++      unsigned char grease_value[QUIC_TP_CHROME_GREASE_VALUE_MAXLEN];
+       size_t grease_vlen;
+ 
+       result = quic_generate_grease_tp(data, &id, grease_value,
+-                                        &grease_vlen);
++                                        &grease_vlen,
++                                        curl_strequal(setting, "GREASE_CHROME"));
+       if(result)
+         goto out;
+       result = quic_raw_append_param_bytes(raw, id, grease_value,
+@@ -918,6 +947,7 @@
+   CURLcode result;
+ 
+   ngtcp2_settings_default(s);
++  s->initial_pkt_num = data->set.quic_initial_packet_number;
+   ngtcp2_transport_params_default(t);
+ #ifdef DEBUG_NGTCP2
+   s->log_printf = quic_printf;
+--- a/include/curl/curl.h
++++ b/include/curl/curl.h
+@@ -2442,6 +2442,16 @@
+ 
+   /* Initial QUIC packet number in each packet number space. */
+   CURLOPT(CURLOPT_QUIC_INITIAL_PACKET_NUMBER, CURLOPTTYPE_LONG, 1045),
++
++  CURLOPT(CURLOPT_HTTP3_TLS_REUSE_X25519_KEY_SHARE, CURLOPTTYPE_LONG, 1046),
++  CURLOPT(CURLOPT_HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOPTTYPE_LONG, 1047),
++  CURLOPT(CURLOPT_HTTP3_SSL_CERT_COMPRESSION, CURLOPTTYPE_STRINGPOINT, 1048),
++  CURLOPT(CURLOPT_HTTP3_TLS_DELEGATED_CREDENTIALS, CURLOPTTYPE_STRINGPOINT, 1049),
++  CURLOPT(CURLOPT_QUIC_FIREFOX_INITIAL_PACKET_NUMBER, CURLOPTTYPE_LONG, 1050),
++  CURLOPT(CURLOPT_HTTP3_SPLIT_COOKIES, CURLOPTTYPE_LONG, 1051),
++  CURLOPT(CURLOPT_HTTP3_ALT_USED, CURLOPTTYPE_LONG, 1052),
++
++  CURLOPT(CURLOPT_QUIC_V2, CURLOPTTYPE_LONG, 1053),
+ 
+   CURLOPT_LASTENTRY /* the last unused */
+ } CURLoption;
+--- a/lib/easyoptions.c
++++ b/lib/easyoptions.c
+@@ -143,6 +143,7 @@
+   { "HTTP2_SETTINGS", CURLOPT_HTTP2_SETTINGS, CURLOT_STRING, 0 },
+   { "HTTP2_STREAMS", CURLOPT_HTTP2_STREAMS, CURLOT_STRING, 0 },
+   { "HTTP2_WINDOW_UPDATE", CURLOPT_HTTP2_WINDOW_UPDATE, CURLOT_LONG, 0 },
++  { "HTTP3_ALT_USED", CURLOPT_HTTP3_ALT_USED, CURLOT_LONG, 0 },
+   { "HTTP3_HTTPHEADER", CURLOPT_HTTP3_HTTPHEADER, CURLOT_SLIST, 0 },
+   { "HTTP3_HTTPHEADER_ORDER", CURLOPT_HTTP3_HTTPHEADER_ORDER,
+     CURLOT_STRING, 0 },
+@@ -150,11 +151,16 @@
+     CURLOT_STRING, 0 },
+   { "HTTP3_SETTINGS", CURLOPT_HTTP3_SETTINGS, CURLOT_STRING, 0 },
+   { "HTTP3_SIG_HASH_ALGS", CURLOPT_HTTP3_SIG_HASH_ALGS, CURLOT_STRING, 0 },
++  { "HTTP3_SPLIT_COOKIES", CURLOPT_HTTP3_SPLIT_COOKIES, CURLOT_LONG, 0 },
++  { "HTTP3_SSL_CERT_COMPRESSION", CURLOPT_HTTP3_SSL_CERT_COMPRESSION, CURLOT_STRING, 0 },
+   { "HTTP3_SSL_EC_CURVES", CURLOPT_HTTP3_SSL_EC_CURVES, CURLOT_STRING, 0 },
+   { "HTTP3_SSL_PERMUTE_EXTENSIONS", CURLOPT_HTTP3_SSL_PERMUTE_EXTENSIONS,
+     CURLOT_LONG, 0 },
++  { "HTTP3_TLS_DELEGATED_CREDENTIALS", CURLOPT_HTTP3_TLS_DELEGATED_CREDENTIALS, CURLOT_STRING, 0 },
++  { "HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE", CURLOPT_HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOT_LONG, 0 },
+   { "HTTP3_TLS_EXTENSION_ORDER", CURLOPT_HTTP3_TLS_EXTENSION_ORDER,
+     CURLOT_STRING, 0 },
++  { "HTTP3_TLS_REUSE_X25519_KEY_SHARE", CURLOPT_HTTP3_TLS_REUSE_X25519_KEY_SHARE, CURLOT_LONG, 0 },
+   { "HTTPAUTH", CURLOPT_HTTPAUTH, CURLOT_VALUES, 0 },
+   { "HTTPBASEHEADER", CURLOPT_HTTPBASEHEADER, CURLOT_SLIST, 0 },
+   { "HTTPGET", CURLOPT_HTTPGET, CURLOT_LONG, 0 },
+@@ -277,9 +283,11 @@
+   { "PUT", CURLOPT_PUT, CURLOT_LONG, 0 },
+   { "QUICK_EXIT", CURLOPT_QUICK_EXIT, CURLOT_LONG, 0 },
+   { "QUIC_CID_LENGTH", CURLOPT_QUIC_CID_LENGTH, CURLOT_STRING, 0 },
++  { "QUIC_FIREFOX_INITIAL_PACKET_NUMBER", CURLOPT_QUIC_FIREFOX_INITIAL_PACKET_NUMBER, CURLOT_LONG, 0 },
+   { "QUIC_INITIAL_PACKET_NUMBER", CURLOPT_QUIC_INITIAL_PACKET_NUMBER, CURLOT_LONG, 0 },
+   { "QUIC_TRANSPORT_PARAMETERS", CURLOPT_QUIC_TRANSPORT_PARAMETERS,
+     CURLOT_STRING, 0 },
++  { "QUIC_V2", CURLOPT_QUIC_V2, CURLOT_LONG, 0 },
+   { "QUOTE", CURLOPT_QUOTE, CURLOT_SLIST, 0 },
+   { "RANDOM_FILE", CURLOPT_RANDOM_FILE, CURLOT_STRING, 0 },
+   { "RANGE", CURLOPT_RANGE, CURLOT_STRING, 0 },
+@@ -390,8 +398,8 @@
+   { "TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0 },
+   { "TLS_DELEGATED_CREDENTIALS", CURLOPT_TLS_DELEGATED_CREDENTIALS,
+     CURLOT_STRING, 0 },
++  { "TLS_ECH_GREASE_PAYLOAD_SIZE", CURLOPT_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOT_LONG, 0 },
+   { "TLS_EXTENSION_ORDER", CURLOPT_TLS_EXTENSION_ORDER, CURLOT_STRING, 0 },
+-  { "TLS_ECH_GREASE_PAYLOAD_SIZE", CURLOPT_TLS_ECH_GREASE_PAYLOAD_SIZE, CURLOT_LONG, 0 },
+   { "TLS_GREASE", CURLOPT_TLS_GREASE, CURLOT_LONG, 0 },
+   { "TLS_GREASE_SIGNATURE_ALGORITHMS", CURLOPT_TLS_GREASE_SIGNATURE_ALGORITHMS,
+     CURLOT_LONG, 0 },
+@@ -445,6 +453,6 @@
+  */
+ int Curl_easyopts_check(void)
+ {
+-  return (CURLOPT_LASTENTRY % 10000) != (1045 + 1);
++  return (CURLOPT_LASTENTRY % 10000) != (1053 + 1);
+ }
+ #endif
+--- a/lib/http.c
++++ b/lib/http.c
+@@ -2866,8 +2866,10 @@
+   CURLcode result = CURLE_OK;
+   char *addcookies = NULL;
+   bool linecap = FALSE;
+-  bool split = data->set.split_cookies &&
+-    (Curl_conn_http_version(data, data->conn) >= 20);
++  int version = Curl_conn_http_version(data, data->conn);
++  bool split = version == 30 && data->set.http3_split_cookies >= 0 ?
++    data->set.http3_split_cookies != 0 :
++    data->set.split_cookies && version >= 20;
+   if(data->set.str[STRING_COOKIE] &&
+      !Curl_checkheaders(data, STRCONST("Cookie")) &&
+      Curl_auth_allowed_to_host(data))
+@@ -3337,7 +3339,17 @@
+ 
+ #ifndef CURL_DISABLE_ALTSVC
+   case H1_HD_ALT_USED:
+-    if(conn->bits.altused && conn->via_peer &&
++    if(httpversion == 30 && data->set.http3_alt_used &&
++       !Curl_checkheaders(data, STRCONST("Alt-Used"))) {
++      const struct Curl_peer *peer = conn->via_peer ? conn->via_peer :
++        data->state.origin;
++      if(peer->port == 443)
++        result = curlx_dyn_addf(req, "Alt-Used: %s\r\n", peer->hostname);
++      else
++        result = curlx_dyn_addf(req, "Alt-Used: %s:%u\r\n",
++                                peer->hostname, peer->port);
++    }
++    else if(conn->bits.altused && conn->via_peer &&
+        !Curl_checkheaders(data, STRCONST("Alt-Used")))
+       result = curlx_dyn_addf(req, "Alt-Used: %s:%u\r\n",
+                               conn->via_peer->hostname, conn->via_peer->port);
+--- a/lib/mime.c
++++ b/lib/mime.c
+@@ -61,6 +61,13 @@
+   if(easy)
+     form_boundary = easy->set.str[STRING_FORM_BOUNDARY];
+ 
++  if(form_boundary && curl_strequal(form_boundary, "firefox4")) {
++    static const char prefix[] = "----geckoformboundary";
++    memcpy(mime->boundary, prefix, sizeof(prefix) - 1);
++    return Curl_rand_hex(easy,
++                          (unsigned char *)&mime->boundary[sizeof(prefix) - 1],
++                          MIME_FIREFOX_BOUNDARY_CHARS + 1);
++  }
+   if(form_boundary && curl_strequal(form_boundary, "webkit4")) {
+     static const char prefix[] = "----WebKitFormBoundary";
+     memcpy(mime->boundary, prefix, sizeof(prefix) - 1);
+--- a/lib/setopt.c
++++ b/lib/setopt.c
+@@ -104,6 +104,7 @@
+ {
+   return curl_strequal(value, "webkit") ||
+          curl_strequal(value, "webkit4") ||
++         curl_strequal(value, "firefox4") ||
+          curl_strequal(value, "firefox");
+ }
+ 
+@@ -904,6 +905,28 @@
+     if(arg < 0 || arg > 65535 - 42 || (arg && arg < 16))
+       return CURLE_BAD_FUNCTION_ARGUMENT;
+     s->tls_ech_grease_payload_size = (int)arg;
++    break;
++  case CURLOPT_HTTP3_TLS_REUSE_X25519_KEY_SHARE:
++    s->http3_tls_reuse_x25519_key_share = enabled;
++    break;
++  case CURLOPT_QUIC_V2:
++    s->quic_v2 = enabled;
++    break;
++  case CURLOPT_QUIC_FIREFOX_INITIAL_PACKET_NUMBER:
++    s->quic_firefox_initial_packet_number = enabled;
++    break;
++  case CURLOPT_HTTP3_ALT_USED:
++    s->http3_alt_used = enabled;
++    break;
++  case CURLOPT_HTTP3_SPLIT_COOKIES:
++    if(arg < -1 || arg > 1)
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    s->http3_split_cookies = (int)arg;
++    break;
++  case CURLOPT_HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE:
++    if(arg < 0 || arg > 65535 - 42 || (arg && arg < 16))
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    s->http3_tls_ech_grease_payload_size = (int)arg;
+     break;
+   case CURLOPT_TLS_REUSE_X25519_KEY_SHARE:
+     s->tls_reuse_x25519_key_share = enabled;
+@@ -2797,6 +2820,10 @@
+   case CURLOPT_WS_SSL_CERT_COMPRESSION:
+     /* Set the TLS certificate compression algorithms for WebSocket. */
+     return Curl_setstropt(&s->str[STRING_WS_SSL_CERT_COMPRESSION], ptr);
++  case CURLOPT_HTTP3_SSL_CERT_COMPRESSION:
++    return Curl_setstropt(&s->str[STRING_HTTP3_SSL_CERT_COMPRESSION], ptr);
++  case CURLOPT_HTTP3_TLS_DELEGATED_CREDENTIALS:
++    return Curl_setstropt(&s->str[STRING_HTTP3_TLS_DELEGATED_CREDENTIALS], ptr);
+   case CURLOPT_TLS_DELEGATED_CREDENTIALS:
+     return Curl_setstropt(&s->str[STRING_TLS_DELEGATED_CREDENTIALS], ptr);
+   case CURLOPT_TLS_TRUST_ANCHORS:
+--- a/lib/url.c
++++ b/lib/url.c
+@@ -421,6 +421,7 @@
+   set->tcp_nodelay = TRUE;
+   set->ssl_enable_alpn = TRUE;
+   set->ssl_enable_ticket = TRUE;
++  set->http3_split_cookies = -1;
+   set->http3_ssl_permute_extensions =
+     CURL_HTTP3_SSL_PERMUTE_FALLBACK;
+   set->tls_grease = FALSE;
+--- a/lib/urldata.h
++++ b/lib/urldata.h
+@@ -906,6 +906,8 @@
+   STRING_ECH_CONFIG,            /* CURLOPT_ECH_CONFIG */
+   STRING_ECH_PUBLIC,            /* CURLOPT_ECH_PUBLIC */
+   STRING_HTTP3_SIG_HASH_ALGS,
++  STRING_HTTP3_SSL_CERT_COMPRESSION,
++  STRING_HTTP3_TLS_DELEGATED_CREDENTIALS,
+   STRING_SSL_CERT_COMPRESSION,
+   STRING_WS_SSL_CERT_COMPRESSION,
+   STRING_HTTP2_PSEUDO_HEADERS_ORDER,
+@@ -1236,6 +1238,12 @@
+   BIT(tls_grease);  /* TLS grease? */
+   BIT(tls_grease_signature_algorithms);
+   BIT(tls_reuse_x25519_key_share);
++  BIT(http3_tls_reuse_x25519_key_share);
++  BIT(quic_firefox_initial_packet_number);
++  BIT(quic_v2);
++  BIT(http3_alt_used);
++  int http3_split_cookies;
++  int http3_tls_ech_grease_payload_size;
+   BIT(tls_key_usage_no_check);  /* TLS key_usage_check? */
+   BIT(tls_signed_cert_timestamps);  /* TLS signed cert timestamps? */
+   BIT(tls_status_request);  /* TLS status request */
+--- a/lib/vquic/cf-ngtcp2-cmn.c
++++ b/lib/vquic/cf-ngtcp2-cmn.c
+@@ -948,6 +948,13 @@
+ 
+   ngtcp2_settings_default(s);
+   s->initial_pkt_num = data->set.quic_initial_packet_number;
++  if(data->set.quic_v2) {
++    static const uint32_t versions[] = {NGTCP2_PROTO_VER_V2, NGTCP2_PROTO_VER_V1};
++    s->preferred_versions = versions;
++    s->preferred_versionslen = 2;
++    s->available_versions = versions;
++    s->available_versionslen = 2;
++  }
+   ngtcp2_transport_params_default(t);
+ #ifdef DEBUG_NGTCP2
+   s->log_printf = quic_printf;
+@@ -1654,6 +1661,7 @@
+   int rc;
+   int rv;
+   CURLcode result;
++  ngtcp2_callbacks callbacks = ng_callbacks;
+   const char *cid_profile = data->set.str[STRING_QUIC_CID_LENGTH];
+   size_t dcidlen = NGTCP2_MAX_CIDLEN;
+   size_t scidlen = NGTCP2_MAX_CIDLEN;
+@@ -1662,6 +1670,9 @@
+   static const struct alpn_spec ALPN_SPEC_H3 = { { "h3" }, 1 };
+ 
+   DEBUGASSERT(ctx->initialized);
++  if(data->set.quic_v2)
++    callbacks.version_negotiation = ngtcp2_crypto_version_negotiation_cb;
++
+   if(cid_profile) {
+     if(!strcmp(cid_profile, "webkit")) {
+       dcidlen = 8;
+@@ -1728,7 +1739,7 @@
+ 
+     rc = ngtcp2_conn_client_new(&ctx->qconn, &ctx->dcid, &ctx->scid,
+                                 &ctx->connected_path,
+-                                NGTCP2_PROTO_VER_V1, &ng_callbacks,
++                                NGTCP2_PROTO_VER_V1, &callbacks,
+                                 &ctx->settings, &ctx->transport_params,
+                                 Curl_ngtcp2_mem(), cf);
+     if(rc)
+@@ -1773,7 +1784,7 @@
+ 
+     rc = ngtcp2_conn_client_new(&ctx->qconn, &ctx->dcid, &ctx->scid,
+                                 &ctx->connected_path,
+-                                NGTCP2_PROTO_VER_V1, &ng_callbacks,
++                                NGTCP2_PROTO_VER_V1, &callbacks,
+                                 &ctx->settings, &ctx->transport_params,
+                                 Curl_ngtcp2_mem(), cf);
+     if(rc)
+@@ -1781,6 +1792,17 @@
+ 
+     ctx->conn_ref.get_conn = get_conn;
+     ctx->conn_ref.user_data = cf;
++  }
++
++  if(data->set.quic_firefox_initial_packet_number) {
++    unsigned char rnd[2];
++    uint32_t first;
++    result = Curl_rand(data, rnd, sizeof(rnd));
++    if(result)
++      return result;
++    first = (rnd[0] & 0x1f) + (rnd[1] > 224 ? (rnd[1] - 224) * 32 : 0) + 1;
++    if(ngtcp2_conn_set_initial_pkt_num(ctx->qconn, first))
++      return CURLE_QUIC_CONNECT_ERROR;
+   }
+ 
+   if(curlx_dyn_len(&ctx->tp_raw)) {
+--- a/lib/vtls/openssl.c
++++ b/lib/vtls/openssl.c
+@@ -4461,10 +4461,12 @@
+     conn_config->grease_signature_algorithms && peer->transport != TRNSPRT_QUIC);
+ 
+   SSL_CTX_set_reuse_x25519_key_share(octx->ssl_ctx,
+-    conn_config->reuse_x25519_key_share && peer->transport != TRNSPRT_QUIC);
++    peer->transport == TRNSPRT_QUIC ? conn_config->http3_reuse_x25519_key_share :
++      conn_config->reuse_x25519_key_share);
+ 
+   SSL_CTX_set_ech_grease_payload_size(octx->ssl_ctx,
+-    peer->transport != TRNSPRT_QUIC ? conn_config->ech_grease_payload_size : 0);
++    peer->transport == TRNSPRT_QUIC ? conn_config->http3_ech_grease_payload_size :
++      conn_config->ech_grease_payload_size);
+ 
+   if(conn_config->trust_anchors) {
+     CURLcode result = set_trust_anchors(data, octx->ssl_ctx,
+@@ -4498,9 +4500,14 @@
+     }
+   }
+ 
+-  if(data->set.str[STRING_TLS_DELEGATED_CREDENTIALS])
+-    SSL_CTX_set_delegated_credentials(
+-      octx->ssl_ctx, data->set.str[STRING_TLS_DELEGATED_CREDENTIALS]);
++  {
++    const char *credentials = peer->transport == TRNSPRT_QUIC &&
++      conn_config->http3_delegated_credentials ?
++      conn_config->http3_delegated_credentials :
++      data->set.str[STRING_TLS_DELEGATED_CREDENTIALS];
++    if(credentials && !SSL_CTX_set_delegated_credentials(octx->ssl_ctx, credentials))
++      return CURLE_SSL_CIPHER;
++  }
+ 
+   if(data->set.tls_record_size_limit)
+     SSL_CTX_set_record_size_limit(octx->ssl_ctx,
+@@ -4516,11 +4523,14 @@
+   else
+     SSL_CTX_set_key_usage_check_enabled(octx->ssl_ctx, 1);
+ 
+-  if(conn_config->cert_compression && conn_config->cert_compression[0] &&
+-     add_cert_compression(data,
+-                          octx->ssl_ctx,
+-                          conn_config->cert_compression))
+-    return CURLE_SSL_CIPHER;
++  {
++    const char *compression = peer->transport == TRNSPRT_QUIC &&
++      conn_config->http3_cert_compression ? conn_config->http3_cert_compression :
++      conn_config->cert_compression;
++    if(compression && compression[0] &&
++       add_cert_compression(data, octx->ssl_ctx, compression))
++      return CURLE_SSL_CIPHER;
++  }
+ #endif /* OPENSSL_IS_BORINGSSL */
+ 
+   /* OpenSSL always tries to verify the peer. By setting the failure mode
+--- a/lib/vtls/vtls_config.c
++++ b/lib/vtls/vtls_config.c
+@@ -174,6 +174,8 @@
+     curlx_safefree(sslc->curves);
+     curlx_safefree(sslc->tls_extension_order);
+     curlx_safefree(sslc->cert_compression);
++    curlx_safefree(sslc->http3_cert_compression);
++    curlx_safefree(sslc->http3_delegated_credentials);
+     curlx_safefree(sslc->signature_algorithms);
+     curlx_safefree(sslc->http3_curves);
+     curlx_safefree(sslc->http3_signature_algorithms);
+@@ -206,6 +208,10 @@
+      (c1->enable_ticket == c2->enable_ticket) &&
+      (c1->grease_signature_algorithms == c2->grease_signature_algorithms) &&
+      (c1->reuse_x25519_key_share == c2->reuse_x25519_key_share) &&
++     (c1->http3_reuse_x25519_key_share == c2->http3_reuse_x25519_key_share) &&
++     (c1->http3_ech_grease_payload_size == c2->http3_ech_grease_payload_size) &&
++     curl_strequal(c1->http3_cert_compression, c2->http3_cert_compression) &&
++     curl_strequal(c1->http3_delegated_credentials, c2->http3_delegated_credentials) &&
+      (c1->ech_grease_payload_size == c2->ech_grease_payload_size) &&
+      (c1->http3_ssl_permute_extensions ==
+       c2->http3_ssl_permute_extensions) &&
+@@ -273,6 +279,8 @@
+   dest->enable_ticket = source->enable_ticket;
+   dest->grease_signature_algorithms = source->grease_signature_algorithms;
+   dest->reuse_x25519_key_share = source->reuse_x25519_key_share;
++  dest->http3_reuse_x25519_key_share = source->http3_reuse_x25519_key_share;
++  dest->http3_ech_grease_payload_size = source->http3_ech_grease_payload_size;
+   dest->ech_grease_payload_size = source->ech_grease_payload_size;
+   dest->http3_ssl_permute_extensions =
+     source->http3_ssl_permute_extensions;
+@@ -290,6 +298,8 @@
+   CLONE_STRING(curves);
+   CLONE_STRING(tls_extension_order);
+   CLONE_STRING(cert_compression);
++  CLONE_STRING(http3_cert_compression);
++  CLONE_STRING(http3_delegated_credentials);
+   CLONE_STRING(signature_algorithms);
+   CLONE_STRING(http3_curves);
+   CLONE_STRING(http3_signature_algorithms);
+@@ -389,6 +399,10 @@
+   sslc->primary.reuse_x25519_key_share = data->set.tls_reuse_x25519_key_share;
+   sslc->primary.ech_grease_payload_size =
+     (uint16_t)data->set.tls_ech_grease_payload_size;
++  sslc->primary.http3_reuse_x25519_key_share = data->set.http3_tls_reuse_x25519_key_share;
++  sslc->primary.http3_ech_grease_payload_size = (uint16_t)data->set.http3_tls_ech_grease_payload_size;
++  sslc->primary.http3_cert_compression = data->set.str[STRING_HTTP3_SSL_CERT_COMPRESSION];
++  sslc->primary.http3_delegated_credentials = data->set.str[STRING_HTTP3_TLS_DELEGATED_CREDENTIALS];
+   sslc->primary.http3_ssl_permute_extensions =
+     Curl_ssl_http3_permute_extensions(data);
+ 
+--- a/lib/vtls/vtls_config.h
++++ b/lib/vtls/vtls_config.h
+@@ -67,6 +67,10 @@
+   BIT(cache_session);    /* cache session or not */
+   BIT(grease_signature_algorithms);
+   BIT(reuse_x25519_key_share);
++  BIT(http3_reuse_x25519_key_share);
++  uint16_t http3_ech_grease_payload_size;
++  char *http3_cert_compression;
++  char *http3_delegated_credentials;
+   uint16_t ech_grease_payload_size;
+   BIT(enable_ticket);    /* enable the TLS session ticket extension */
+   BIT(http3_ssl_permute_extensions); /* HTTP/3 TLS extension permutation */
+--- a/lib/vtls/vtls_scache.c
++++ b/lib/vtls/vtls_scache.c
+@@ -268,6 +268,17 @@
+   }
+   if(!ssl->enable_ticket) {
+     result = curlx_dyn_add(&buf, ":NOTICKET");
++    if(result)
++      goto out;
++  }
++  if(peer->transport == TRNSPRT_QUIC &&
++     (ssl->http3_reuse_x25519_key_share || ssl->http3_ech_grease_payload_size ||
++      ssl->http3_cert_compression || ssl->http3_delegated_credentials)) {
++    result = curlx_dyn_addf(&buf, ":H3TLS-%u-%u-%s-%s",
++      (unsigned int)ssl->http3_reuse_x25519_key_share,
++      (unsigned int)ssl->http3_ech_grease_payload_size,
++      ssl->http3_cert_compression ? ssl->http3_cert_compression : "",
++      ssl->http3_delegated_credentials ? ssl->http3_delegated_credentials : "");
+     if(result)
+       goto out;
+   }

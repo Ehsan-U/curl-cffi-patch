@@ -1,7 +1,13 @@
 recursive-include tests *
+global-exclude *.pyc *.pyo
 
 include ffi/*
-include include/curl/*
 include scripts/build.py
+include scripts/build_native.py
+include scripts/ci_build_native.sh
+include scripts/test_installed_wheel.py
 include Makefile
 include libs.json
+recursive-include ffi/patches *.patch
+include scripts/build_windows_fingerprints.sh
+include docs/impersonate/windows.rst

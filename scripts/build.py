@@ -1,15 +1,10 @@
 import json
 import os
 import platform
-import shutil
 import struct
 import sys
-import tempfile
-import time
-from glob import glob
-from http.client import HTTPException
+import subprocess
 from pathlib import Path
-from urllib.request import urlretrieve
 
 from cffi import FFI
 
@@ -51,19 +46,8 @@ def detect_arch():
         ):
             if build_dir := os.environ.get("IMPERSONATE_BUILD_DIR"):
                 arch["libdir"] = os.path.expanduser(build_dir)
-            elif arch.get("libdir"):
-                arch["libdir"] = os.path.expanduser(arch["libdir"])
             else:
-                if "CI" in os.environ:
-                    tmpdir = "./tmplibdir"
-                    os.makedirs(tmpdir, exist_ok=True)
-                    arch["libdir"] = tmpdir
-                else:
-                    if arch.get("local_libdir"):
-                        arch["libdir"] = os.path.expanduser(arch["local_libdir"])
-                    else:
-                        tmpdir = tempfile.TemporaryDirectory()
-                        arch["libdir"] = tmpdir.name
+                arch["libdir"] = str(Path.home() / ".cache/curl-cffi-patch/native" / f"{uname_system}-{uname.machine}-{libc}")  # noqa: E501
             return arch
     raise Exception(f"Unsupported arch: {uname}")
 
@@ -102,59 +86,15 @@ is_android = arch.get("libc") == "android"
 print(f"Using {libdir} to store libcurl-impersonate")
 
 
-def download_libcurl():
-    expected = libdir / obj_name
-    if expected.exists():
-        print(f"libcurl-impersonate: {expected} already downloaded.")
+def prepare_libcurl():
+    if os.environ.get("CURL_CFFI_BUILD_SDIST") == "1":
         return
-
-    file = "libcurl-impersonate.tar.gz"
-    sysname = "linux-" + arch["libc"] if arch["system"] == "Linux" else arch["sysname"]
-
-    url = (
-        f"https://github.com/lexiforest/curl-impersonate/releases/download/"
-        f"v{__version__}/libcurl-impersonate-v{__version__}"
-        f".{arch['arch']}-{sysname}.tar.gz"
-    )
-
-    print(f"Downloading libcurl-impersonate from {url}...")
-    retries = 3
-    for attempt in range(1, retries + 1):
-        try:
-            urlretrieve(url, file)
-            break
-        except (OSError, HTTPException) as e:
-            if attempt == retries:
-                raise
-            wait = 2 ** (attempt - 1)
-            print(f"Download failed ({e}); retry {attempt}/{retries} in {wait}s...")
-            time.sleep(wait)
-
-    print("Unpacking downloaded files...")
-    os.makedirs(libdir, exist_ok=True)
-    shutil.unpack_archive(file, libdir)
-
-    if arch["system"] == "Windows":
-        for file in glob(str(libdir / "lib/*.lib")):
-            src = Path(file)
-            dst = libdir / src.name
-            if dst.exists():
-                dst.unlink()
-            shutil.move(src, dst)
-        for file in glob(str(libdir / "lib/*.dll")):
-            src = Path(file)
-            dst = libdir / src.name
-            if dst.exists():
-                dst.unlink()
-            shutil.move(src, dst)
-
-    print("Files after unpacking:")
-    print(os.listdir(libdir))
+    if not is_static:
+        raise ValueError("Patched native builds require IMPERSONATE_LINK_TYPE=static")
+    subprocess.run([sys.executable, str(root_dir / "scripts/build_native.py"), str(libdir)], check=True)  # noqa: E501
 
 
 def get_curl_archives():
-    print("Files in linking directory:")
-    print(os.listdir(libdir))
     if is_static:
         # note that the order of libraries matters
         # https://stackoverflow.com/a/36581865
@@ -182,7 +122,7 @@ def get_curl_libraries():
 ffibuilder = FFI()
 system = platform.system()
 root_dir = Path(__file__).parent.parent
-download_libcurl()
+prepare_libcurl()
 
 # With mega archive, we only have one to link
 static_libs = get_curl_archives()
@@ -192,6 +132,11 @@ if is_static:
         extra_link_args = [
             f"-Wl,-force_load,{static_libs[0]}",
             "-lc++",
+            "-framework", "CoreFoundation",
+            "-framework", "Security",
+            "-framework", "SystemConfiguration",
+            "-liconv",
+            "-licucore",
         ]
     elif is_android:
         extra_link_args = [
@@ -222,9 +167,8 @@ ffibuilder.set_source(
     extra_objects=[],  # linked via extra_link_args
     source_extension=".c",
     include_dirs=[
-        str(root_dir / "include"),
-        str(root_dir / "ffi"),
         str(libdir / "include"),
+        str(root_dir / "ffi"),
     ],
     sources=[
         str(root_dir / "ffi/shim.c"),

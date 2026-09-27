@@ -392,6 +392,9 @@ class Fingerprint:
     tls_ech: str | None = None
     tls_permute_extensions: bool = False
     tls_trust_anchors: list[str] | None = None
+    tls_grease_signature_algorithms: bool | None = None
+    tls_reuse_x25519_key_share: bool | None = None
+    tls_ech_grease_payload_size: int | None = None
 
     headers: dict[str, str] = field(default_factory=dict)
     header_order: str = ""
@@ -404,15 +407,27 @@ class Fingerprint:
     http2_stream_weight: int | None = None
     http2_stream_exclusive: int | None = None
     http2_no_priority: bool = False
+    http2_first_stream_id: int | None = None
 
     http3_settings: str = ""
     http3_pseudo_headers_order: str = ""
     http3_tls_extension_order: str = ""
+    http3_tls_signature_hashes: list[str] = field(default_factory=list)
+    http3_tls_permute_extensions: bool | None = None
+    http3_tls_reuse_x25519_key_share: bool | None = None
+    http3_tls_ech_grease_payload_size: int | None = None
+    http3_tls_cert_compression: list[str] | None = None
+    http3_tls_delegated_credentials: list[str] | None = None
+    http3_split_cookies: bool | None = None
+    http3_alt_used: bool | None = None
     http3_headers: dict[str, str] = field(default_factory=dict)
     http3_header_order: str = ""
     http3_tls_supported_groups: list[str] = field(default_factory=list)
     quic_transport_parameters: str = ""
     quic_cid_length: str | None = None
+    quic_initial_packet_number: int | None = None
+    quic_firefox_initial_packet_number: bool | None = None
+    quic_v2: bool | None = None
 
     ws_headers: dict[str, str] = field(default_factory=dict)
     ws_header_order: str = ""
@@ -423,6 +438,276 @@ class Fingerprint:
 
 
 BUILTIN_FINGERPRINTS: dict[str, Fingerprint] = {
+    "chrome153_win": Fingerprint(
+        client="chrome",
+        client_version="153.0.8010.48",
+        os="Windows",
+        os_version="11",
+        tls_ciphers=[
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+        ],
+        tls_alpn=True,
+        tls_alps=True,
+        tls_cert_compression=["brotli"],
+        tls_signature_hashes=[
+            "mldsa44",
+            "mldsa65",
+            "mldsa87",
+            "ecdsa_secp256r1_sha256",
+            "rsa_pss_rsae_sha256",
+            "rsa_pkcs1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "rsa_pss_rsae_sha384",
+            "rsa_pkcs1_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha512",
+        ],
+        tls_key_shares_limit=2,
+        tls_supported_groups=["X25519MLKEM768", "X25519", "P-256", "P-384"],
+        tls_session_ticket=True,
+        tls_grease=True,
+        tls_use_new_alps_codepoint=True,
+        tls_signed_cert_timestamps=True,
+        tls_ech="grease",
+        tls_permute_extensions=True,
+        headers={
+            "sec-ch-ua": '"Google Chrome";v="153", "Not_A Brand";v="8", '
+            '"Chromium";v="153"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "upgrade-insecure-requests": "1",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 "
+            "Safari/537.36",
+            "accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,image/apng,*/*;q=0.8,"
+                "application/signed-exchange;v=b3;q=0.7"
+            ),
+            "sec-fetch-site": "none",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-user": "?1",
+            "sec-fetch-dest": "document",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-US,en;q=0.9",
+            "priority": "u=0, i",
+        },
+        header_order="sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,accept-encoding,accept-language,cookie,priority",
+        http2_settings="1:65536;2:0;4:6291456;6:262144",
+        http2_window_update=15663105,
+        http2_pseudo_headers_order="m,a,s,p",
+        http2_stream_weight=256,
+        http2_stream_exclusive=1,
+        tls_trust_anchors=[
+            "11129.9.1",
+            "11129.9.10",
+            "11129.9.11",
+            "11129.9.12",
+            "11129.9.13",
+            "11129.9.15",
+            "11129.9.4",
+            "11129.9.5",
+            "11129.9.6",
+            "11129.9.7",
+            "11129.9.8",
+            "44947.2.1",
+            "44947.2.13",
+            "44947.2.14",
+            "44947.2.15",
+            "44947.2.18",
+            "44947.2.19",
+            "44947.2.20",
+            "44947.2.6",
+            "52580.200109.1.10",
+            "52580.200109.1.11",
+            "52580.200109.1.12",
+            "52580.200109.1.13",
+            "52580.200109.1.18",
+            "52580.200109.1.19",
+            "52580.200109.1.7",
+            "52580.200109.1.8",
+            "52580.200109.1.9",
+        ],
+        tls_grease_signature_algorithms=True,
+        split_cookies=True,
+        form_boundary="webkit4",
+        http3_settings="1:65536;6:262144;7:100;51:1;GREASE",
+        http3_pseudo_headers_order="m,a,s,p",
+        # Explicit extension order overrides the generic permutation flag.
+        http3_tls_extension_order="SHUFFLE:12:0-10-13-16-27-43-45-51-57-17613-51764-65037",
+        http3_tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "rsa_pss_rsae_sha256",
+            "rsa_pkcs1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "rsa_pss_rsae_sha384",
+            "rsa_pkcs1_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha512",
+            "rsa_pkcs1_sha1",
+        ],
+        http3_tls_permute_extensions=False,
+        quic_cid_length="webkit",
+        quic_initial_packet_number=1,
+        quic_transport_parameters=(
+            "1:30000;3:1472;4:15728640;5:6291456;6:6291456;7:6291456;"
+            "8:100;9:103;15:;17:1@SHUFFLE:1,GREASE;32:65536;"
+            "12584:0x4f524947;GREASE_CHROME"
+        ),
+    ),
+    "firefox156_win": Fingerprint(
+        client="firefox",
+        client_version="156.0",
+        os="Windows",
+        os_version="11",
+        tls_ciphers=[
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_CHACHA20_POLY1305_SHA256",
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+        ],
+        tls_alpn=True,
+        tls_alps=False,
+        tls_cert_compression=["zlib", "brotli", "zstd"],
+        tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "ecdsa_secp521r1_sha512",
+            "rsa_pss_rsae_sha256",
+            "rsa_pss_rsae_sha384",
+            "rsa_pss_rsae_sha512",
+            "rsa_pkcs1_sha256",
+            "rsa_pkcs1_sha384",
+            "rsa_pkcs1_sha512",
+            "ecdsa_sha1",
+            "rsa_pkcs1_sha1",
+        ],
+        tls_key_shares_limit=3,
+        tls_supported_groups=["X25519MLKEM768", "X25519", "P-256", "P-384", "P-521"],
+        tls_session_ticket=True,
+        tls_extension_order="0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037",
+        tls_grease=False,
+        tls_use_new_alps_codepoint=False,
+        tls_signed_cert_timestamps=True,
+        tls_ech="grease",
+        tls_permute_extensions=False,
+        headers={
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) "
+            "Gecko/20100101 Firefox/156.0",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "en-US,en;q=0.9",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "upgrade-insecure-requests": "1",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+            "priority": "u=0, i",
+            "te": "trailers",
+        },
+        header_order="user-agent,accept,accept-language,accept-encoding,cookie,upgrade-insecure-requests,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,sec-fetch-user,priority,te",
+        http2_settings="1:65536;2:0;4:131072;5:16384",
+        http2_window_update=12517377,
+        http2_pseudo_headers_order="m,p,a,s",
+        http2_stream_weight=42,
+        http2_stream_exclusive=0,
+        tls_delegated_credentials=[
+            "ecdsa_secp256r1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "ecdsa_secp521r1_sha512",
+            "ecdsa_sha1",
+        ],
+        tls_record_size_limit=16385,
+        http2_first_stream_id=3,
+        tls_reuse_x25519_key_share=True,
+        tls_ech_grease_payload_size=240,
+        split_cookies=True,
+        form_boundary="firefox4",
+        http3_settings="1:65536;7:20;727725890:0;16765559:1;51:1;8:1",
+        http3_pseudo_headers_order="m,s,a,p",
+        http3_tls_extension_order="SHUFFLE:13:0-5-10-13-16-23-27-28-34-43-45-51-65281-57-65037",
+        http3_tls_permute_extensions=False,
+        http3_tls_signature_hashes=[
+            "ecdsa_secp256r1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "ecdsa_secp521r1_sha512",
+            "ecdsa_sha1",
+            "rsa_pss_rsae_sha256",
+            "rsa_pss_rsae_sha384",
+            "rsa_pss_rsae_sha512",
+            "mldsa44",
+            "mldsa65",
+            "mldsa87",
+            "rsa_pkcs1_sha256",
+            "rsa_pkcs1_sha384",
+            "rsa_pkcs1_sha512",
+            "rsa_pkcs1_sha1",
+        ],
+        http3_tls_cert_compression=["zlib", "zstd", "brotli"],
+        http3_tls_delegated_credentials=[
+            "ecdsa_secp256r1_sha256",
+            "ecdsa_secp384r1_sha384",
+            "ecdsa_secp521r1_sha512",
+            "ecdsa_sha1",
+            "mldsa44",
+            "mldsa65",
+            "mldsa87",
+        ],
+        http3_tls_reuse_x25519_key_share=True,
+        http3_tls_ech_grease_payload_size=240,
+        http3_split_cookies=False,
+        http3_alt_used=True,
+        http3_headers={
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) "
+            "Gecko/20100101 Firefox/156.0",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "en-US,en;q=0.9",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "upgrade-insecure-requests": "1",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+            "priority": "u=0, i",
+        },
+        http3_header_order="user-agent,accept,accept-language,accept-encoding,alt-used,cookie,upgrade-insecure-requests,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,sec-fetch-user,priority",
+        quic_cid_length="firefox",
+        quic_initial_packet_number=0,
+        quic_firefox_initial_packet_number=True,
+        quic_v2=True,
+        # Omit RESET_STREAM_AT (29) and min_ack_delay (0xff02de1a): unsupported.
+        # https://github.com/ngtcp2/ngtcp2/pull/1097
+        # https://github.com/ngtcp2/ngtcp2/pull/1348
+        quic_transport_parameters=(
+            "1:30000;4:25165824;5:12582912;6:1048576;7:1048576;8:100;9:100;"
+            "11:20;14:8;15:AUTO;17:1@GREASE,1798521807,1;32:65535"
+        ),
+    ),
     "ios27": Fingerprint(
         client="cfnetwork",
         client_version="3896.100.1.2.1",
@@ -870,7 +1155,7 @@ class FingerprintManager:
                         "version": fingerprint.client_version,
                         "os": fingerprint.os,
                         "os_version": fingerprint.os_version,
-                        "h3_fingerprints": fingerprint.http_version in ("v3", "v3only"),
+                        "h3_fingerprints": bool(fingerprint.http3_settings) or fingerprint.http_version in ("v3", "v3only"),  # noqa: E501
                     }
                 )
             else:
@@ -882,7 +1167,7 @@ class FingerprintManager:
                         "version": fingerprint.client_version,
                         "os": fingerprint.os,
                         "os_version": fingerprint.os_version,
-                        "h3_fingerprints": fingerprint.http_version in ("v3", "v3only"),
+                        "h3_fingerprints": bool(fingerprint.http3_settings) or fingerprint.http_version in ("v3", "v3only"),  # noqa: E501
                     }
                 )
         return rows
