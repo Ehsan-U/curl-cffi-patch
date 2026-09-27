@@ -61,7 +61,7 @@ def build(libdir):
             env["PKG_CONFIG_LIBDIR"] = str(output / "deps/install/lib/pkgconfig")
         else:
             cmake_args = [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={identity['deployment_target']}", "-DCMAKE_OSX_ARCHITECTURES=arm64"]  # noqa: E501
-        run("cmake", "-S", source, "-B", output, "-G", "Unix Makefiles", f"-DCMAKE_MAKE_PROGRAM={shutil.which(make)}", f"-DCMAKE_INSTALL_PREFIX={install}", "-DSUBJOBS=4", *cmake_args, env=env)  # noqa: E501
+        run("cmake", "-S", source, "-B", output, "-G", "Unix Makefiles", f"-DCMAKE_MAKE_PROGRAM={shutil.which(make)}", f"-DCMAKE_INSTALL_PREFIX={install}", "-DCMAKE_INSTALL_LIBDIR=lib", "-DSUBJOBS=4", *cmake_args, env=env)  # noqa: E501
         run("cmake", "--build", output, "--parallel", "2", env=env)
         run(make, "-C", source, "checkbuild", f"BUILD_DIR={output}", env=env)
         run("cmake", "--install", output, env=env)
