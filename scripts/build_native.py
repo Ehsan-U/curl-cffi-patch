@@ -49,6 +49,11 @@ def build(libdir):
             upstream = source / "patches" / patch.name.replace("-windows-fingerprints", "")  # noqa: E501
             with upstream.open("ab") as file:
                 file.write(patch.read_bytes())
+        if system == "Linux":
+            # Older manylinux toolchains supply newer C++ symbols via a static
+            # supplement, which must appear after BoringSSL on the link line.
+            cmake_file = source / "CMakeLists.txt"
+            cmake_file.write_text(cmake_file.read_text().replace("set(_curl_platform_flags)\n", "set(_curl_platform_flags \"-DCMAKE_C_STANDARD_LIBRARIES=-lstdc++\")\n"))  # noqa: E501
         env = os.environ.copy()
         cmake_args = []
         if system == "Linux":
