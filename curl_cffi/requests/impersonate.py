@@ -28,6 +28,7 @@ BrowserTypeLiteral = Literal[
     "chrome145",
     "chrome146",
     "chrome150",
+    "chrome153_win",
     "chrome99_android",
     "chrome131_android",
     # Safari
@@ -47,6 +48,7 @@ BrowserTypeLiteral = Literal[
     "firefox135",
     "firefox144",
     "firefox147",
+    "firefox156_win",
     "tor145",
     # HTTP clients
     "okhttp50a2",
@@ -156,6 +158,7 @@ class BrowserType(str, Enum):  # TODO: remove in version 1.x
     chrome145 = "chrome145"
     chrome146 = "chrome146"
     chrome150 = "chrome150"
+    chrome153_win = "chrome153_win"
     chrome99_android = "chrome99_android"
     chrome131_android = "chrome131_android"
     safari153 = "safari153"
@@ -173,6 +176,7 @@ class BrowserType(str, Enum):  # TODO: remove in version 1.x
     firefox135 = "firefox135"
     firefox144 = "firefox144"
     firefox147 = "firefox147"
+    firefox156_win = "firefox156_win"
     tor145 = "tor145"
     okhttp50a2 = "okhttp50a2"
     okhttp51_android11 = "okhttp51_android11"

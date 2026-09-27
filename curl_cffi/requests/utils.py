@@ -9,7 +9,7 @@ import math
 import queue
 import warnings
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from io import BytesIO
 from json import dumps
 from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Union, cast, final
@@ -421,6 +421,7 @@ def _apply_fingerprint(
     fingerprint: Fingerprint,
     existing_header_names: set[str],
     default_headers: bool,
+    request_headers: Sequence[str] = (),
 ) -> None:
     if fingerprint.tls_version:
         tls_version = _normalize_tls_version(fingerprint.tls_version)
@@ -490,7 +491,16 @@ def _apply_fingerprint(
             CurlOpt.TLS_TRUST_ANCHORS, ",".join(fingerprint.tls_trust_anchors)
         )
 
+    if fingerprint.tls_grease_signature_algorithms is not None:
+        curl.setopt(CurlOpt.TLS_GREASE_SIGNATURE_ALGORITHMS, int(fingerprint.tls_grease_signature_algorithms))  # noqa: E501
+    if fingerprint.tls_reuse_x25519_key_share is not None:
+        curl.setopt(CurlOpt.TLS_REUSE_X25519_KEY_SHARE, int(fingerprint.tls_reuse_x25519_key_share))  # noqa: E501
+    if fingerprint.tls_ech_grease_payload_size is not None:
+        curl.setopt(CurlOpt.TLS_ECH_GREASE_PAYLOAD_SIZE, fingerprint.tls_ech_grease_payload_size)  # noqa: E501
+
     # http2 settings
+    if fingerprint.http2_first_stream_id is not None:
+        curl.setopt(CurlOpt.HTTP2_FIRST_STREAM_ID, fingerprint.http2_first_stream_id)
     if fingerprint.http2_settings:
         curl.setopt(CurlOpt.HTTP2_SETTINGS, fingerprint.http2_settings)
     if fingerprint.http2_window_update:
@@ -514,6 +524,28 @@ def _apply_fingerprint(
         curl.setopt(CurlOpt.FORM_BOUNDARY, fingerprint.form_boundary)
 
     # http3 settings
+    if fingerprint.http3_tls_signature_hashes:
+        curl.setopt(CurlOpt.HTTP3_SIG_HASH_ALGS, ",".join(fingerprint.http3_tls_signature_hashes))  # noqa: E501
+    if fingerprint.http3_tls_permute_extensions is not None:
+        curl.setopt(CurlOpt.HTTP3_SSL_PERMUTE_EXTENSIONS, int(fingerprint.http3_tls_permute_extensions))  # noqa: E501
+    if fingerprint.http3_tls_reuse_x25519_key_share is not None:
+        curl.setopt(CurlOpt.HTTP3_TLS_REUSE_X25519_KEY_SHARE, int(fingerprint.http3_tls_reuse_x25519_key_share))  # noqa: E501
+    if fingerprint.http3_tls_ech_grease_payload_size is not None:
+        curl.setopt(CurlOpt.HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE, fingerprint.http3_tls_ech_grease_payload_size)  # noqa: E501
+    if fingerprint.http3_tls_cert_compression is not None:
+        curl.setopt(CurlOpt.HTTP3_SSL_CERT_COMPRESSION, ",".join(fingerprint.http3_tls_cert_compression))  # noqa: E501
+    if fingerprint.http3_tls_delegated_credentials is not None:
+        curl.setopt(CurlOpt.HTTP3_TLS_DELEGATED_CREDENTIALS, ":".join(fingerprint.http3_tls_delegated_credentials))  # noqa: E501
+    if fingerprint.http3_split_cookies is not None:
+        curl.setopt(CurlOpt.HTTP3_SPLIT_COOKIES, int(fingerprint.http3_split_cookies))  # noqa: E501
+    if fingerprint.http3_alt_used is not None:
+        curl.setopt(CurlOpt.HTTP3_ALT_USED, int(fingerprint.http3_alt_used))  # noqa: E501
+    if fingerprint.quic_firefox_initial_packet_number is not None:
+        curl.setopt(CurlOpt.QUIC_FIREFOX_INITIAL_PACKET_NUMBER, int(fingerprint.quic_firefox_initial_packet_number))  # noqa: E501
+    if fingerprint.quic_v2 is not None:
+        curl.setopt(CurlOpt.QUIC_V2, int(fingerprint.quic_v2))  # noqa: E501
+    if fingerprint.quic_initial_packet_number is not None:
+        curl.setopt(CurlOpt.QUIC_INITIAL_PACKET_NUMBER, fingerprint.quic_initial_packet_number)  # noqa: E501
     if fingerprint.http3_settings:
         curl.setopt(CurlOpt.HTTP3_SETTINGS, fingerprint.http3_settings)
     if fingerprint.http3_pseudo_headers_order:
@@ -568,12 +600,14 @@ def _apply_fingerprint(
             curl.setopt(CurlOpt.HTTPHEADER, [h.encode() for h in header_lines])
 
     if default_headers and fingerprint.http3_headers:
+        request_header_names = {_header_line_key(line) for line in request_headers}
         curl.setopt(
             CurlOpt.HTTP3_HTTPHEADER,
             [
                 f"{key}: {value}".encode()
                 for key, value in fingerprint.http3_headers.items()
-            ],
+                if key.lower() not in request_header_names
+            ] + [line.encode() for line in request_headers],
         )
 
     if default_headers and fingerprint.ws_headers:
@@ -927,7 +961,7 @@ def set_curl_options(
     # impersonate
     if impersonate:
         if isinstance(impersonate, Fingerprint):
-            _apply_fingerprint(c, impersonate, existing_header_names, default_headers)
+            _apply_fingerprint(c, impersonate, existing_header_names, default_headers, header_lines)  # noqa: E501
         else:
             normalized = resolve_latest_browser_type(impersonate)
             if _is_native_impersonate_target(normalized):
@@ -943,7 +977,7 @@ def set_curl_options(
                         f"Impersonating {impersonate} is not supported"
                     )
                 _apply_fingerprint(
-                    c, fingerprint, existing_header_names, default_headers
+                    c, fingerprint, existing_header_names, default_headers, header_lines
                 )
 
     # ja3 string

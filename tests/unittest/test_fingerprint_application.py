@@ -1,3 +1,4 @@
+from curl_cffi import get_fingerprint
 from curl_cffi.const import CurlOpt
 from curl_cffi.fingerprints import Fingerprint
 from curl_cffi.requests.impersonate import ExtraFingerprints
@@ -200,3 +201,82 @@ def test_set_extra_fp_sets_header_order():
     set_extra_fp(curl, extra_fp)
 
     assert curl.options[CurlOpt.HTTPHEADER_ORDER] == "User-Agent,Host,Connection"
+
+
+def test_apply_fingerprint_sets_windows_native_options():
+    curl = FakeCurl()
+    fingerprint = Fingerprint(tls_grease_signature_algorithms=True, tls_reuse_x25519_key_share=True, tls_ech_grease_payload_size=240, http2_first_stream_id=3)  # noqa: E501
+
+    _apply_fingerprint(curl, fingerprint, existing_header_names=set(), default_headers=False)  # noqa: E501
+
+    assert curl.options[CurlOpt.TLS_GREASE_SIGNATURE_ALGORITHMS] == 1
+    assert curl.options[CurlOpt.TLS_REUSE_X25519_KEY_SHARE] == 1
+    assert curl.options[CurlOpt.TLS_ECH_GREASE_PAYLOAD_SIZE] == 240
+    assert curl.options[CurlOpt.HTTP2_FIRST_STREAM_ID] == 3
+
+
+def test_apply_fingerprint_leaves_unspecified_windows_options_unset():
+    curl = FakeCurl()
+    _apply_fingerprint(curl, Fingerprint(), existing_header_names=set(), default_headers=False)  # noqa: E501
+
+    assert CurlOpt.TLS_GREASE_SIGNATURE_ALGORITHMS not in curl.options
+    assert CurlOpt.TLS_REUSE_X25519_KEY_SHARE not in curl.options
+    assert CurlOpt.TLS_ECH_GREASE_PAYLOAD_SIZE not in curl.options
+    assert CurlOpt.HTTP2_FIRST_STREAM_ID not in curl.options
+
+
+def test_apply_http3_controls_without_changing_tcp_signatures():
+    curl = FakeCurl()
+    fingerprint = Fingerprint(tls_signature_hashes=["mldsa44"], tls_permute_extensions=True, http3_tls_signature_hashes=["rsa_pkcs1_sha1"], http3_tls_permute_extensions=False, quic_initial_packet_number=1)  # noqa: E501
+    _apply_fingerprint(curl, fingerprint, existing_header_names=set(), default_headers=False)  # noqa: E501
+
+    assert curl.options[CurlOpt.SSL_SIG_HASH_ALGS] == "mldsa44"
+    assert curl.options[CurlOpt.HTTP3_SIG_HASH_ALGS] == "rsa_pkcs1_sha1"
+    assert curl.options[CurlOpt.SSL_PERMUTE_EXTENSIONS] == 1
+    assert curl.options[CurlOpt.HTTP3_SSL_PERMUTE_EXTENSIONS] == 0
+    assert curl.options[CurlOpt.QUIC_INITIAL_PACKET_NUMBER] == 1
+
+
+def test_apply_default_fingerprint_leaves_http3_controls_unset():
+    curl = FakeCurl()
+    _apply_fingerprint(curl, Fingerprint(), existing_header_names=set(), default_headers=False)  # noqa: E501
+
+    assert CurlOpt.HTTP3_SIG_HASH_ALGS not in curl.options
+    assert CurlOpt.HTTP3_SSL_PERMUTE_EXTENSIONS not in curl.options
+    assert CurlOpt.QUIC_INITIAL_PACKET_NUMBER not in curl.options
+
+
+
+def test_apply_firefox_http3_overrides_are_separate_from_tcp():
+    curl = FakeCurl()
+    _apply_fingerprint(curl, get_fingerprint("firefox156_win"), existing_header_names=set(), default_headers=True)  # noqa: E501
+
+    assert curl.options[CurlOpt.SPLIT_COOKIES] == 1
+    assert curl.options[CurlOpt.HTTP3_SPLIT_COOKIES] == 0
+    assert curl.options[CurlOpt.SSL_CERT_COMPRESSION] == "zlib,brotli,zstd"
+    assert curl.options[CurlOpt.HTTP3_SSL_CERT_COMPRESSION] == "zlib,zstd,brotli"
+    assert "mldsa44" not in curl.options[CurlOpt.TLS_DELEGATED_CREDENTIALS]
+    assert "mldsa44" in curl.options[CurlOpt.HTTP3_TLS_DELEGATED_CREDENTIALS]
+    assert curl.options[CurlOpt.HTTP3_TLS_REUSE_X25519_KEY_SHARE] == 1
+    assert curl.options[CurlOpt.HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE] == 240
+    assert curl.options[CurlOpt.QUIC_FIREFOX_INITIAL_PACKET_NUMBER] == 1
+    assert curl.options[CurlOpt.QUIC_V2] == 1
+    assert curl.options[CurlOpt.HTTP3_ALT_USED] == 1
+    assert curl.options[CurlOpt.HTTP3_TLS_EXTENSION_ORDER].startswith("SHUFFLE:13:")
+
+
+def test_apply_default_fingerprint_leaves_firefox_http3_overrides_unset():
+    curl = FakeCurl()
+    _apply_fingerprint(curl, Fingerprint(), existing_header_names=set(), default_headers=False)  # noqa: E501
+
+    for option in (CurlOpt.HTTP3_SPLIT_COOKIES, CurlOpt.HTTP3_ALT_USED, CurlOpt.HTTP3_TLS_REUSE_X25519_KEY_SHARE, CurlOpt.HTTP3_TLS_ECH_GREASE_PAYLOAD_SIZE, CurlOpt.HTTP3_SSL_CERT_COMPRESSION, CurlOpt.HTTP3_TLS_DELEGATED_CREDENTIALS, CurlOpt.QUIC_FIREFOX_INITIAL_PACKET_NUMBER, CurlOpt.QUIC_V2):  # noqa: E501
+        assert option not in curl.options
+
+
+
+def test_apply_http3_headers_keep_request_overrides_and_additions():
+    curl = FakeCurl()
+    fingerprint = Fingerprint(http3_headers={"User-Agent": "browser", "Accept": "text/html"})  # noqa: E501
+    _apply_fingerprint(curl, fingerprint, {"user-agent", "cookie"}, True, ["user-agent: caller", "Cookie: a=1; b=2"])  # noqa: E501
+
+    assert curl.options[CurlOpt.HTTP3_HTTPHEADER] == [b"Accept: text/html", b"user-agent: caller", b"Cookie: a=1; b=2"]  # noqa: E501

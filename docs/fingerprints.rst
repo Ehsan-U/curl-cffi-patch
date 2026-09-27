@@ -112,3 +112,12 @@ Environment overrides:
 
 - ``IMPERSONATE_API_KEY``: override the API key loaded from ``config.json``.
 - ``IMPERSONATE_CONFIG_DIR``: override the config/cache directory.
+
+Captured Windows profiles
+=========================
+
+``chrome153_win`` and ``firefox156_win`` are built-in Windows 11 capture profiles.
+They require the supplemental native patches bundled with this checkout.
+Both Windows profiles also include captured cookie handling, multipart formatting,
+and explicit HTTP/3 support; their default HTTP version remains HTTP/2.
+See :doc:`impersonate/windows` for build instructions, verification, and scope.

@@ -1,0 +1,122 @@
+--- a/lib/includes/ngtcp2/ngtcp2.h
++++ b/lib/includes/ngtcp2/ngtcp2.h
+@@ -3814,6 +3814,10 @@
+  * frees memory pointed by |conn|.
+  */
+ NGTCP2_EXTERN void ngtcp2_conn_del(ngtcp2_conn *conn);
++
++/* Set only the Initial-space packet number before any packet is sent. */
++NGTCP2_EXTERN int ngtcp2_conn_set_initial_pkt_num(ngtcp2_conn *conn,
++                                                uint32_t number);
+ 
+ /**
+  * @function
+--- a/lib/ngtcp2_conn.c
++++ b/lib/ngtcp2_conn.c
+@@ -708,6 +708,7 @@
+                        ngtcp2_objalloc *frc_objalloc, const ngtcp2_mem *mem) {
+   ngtcp2_gaptr_init(&pktns->rx.pngap, mem);
+ 
++  pktns->initial_pkt_num = (uint32_t)initial_pkt_num;
+   pktns->tx.last_pkt_num = initial_pkt_num - 1;
+   pktns->tx.non_ack_pkt_start_ts = UINT64_MAX;
+   pktns->rx.max_ack_eliciting_pkt_num = -1;
+@@ -720,6 +721,17 @@
+ 
+   ngtcp2_rtb_init(&pktns->rtb, rst, cc, initial_pkt_num, log, qlog,
+                   rtb_entry_objalloc, frc_objalloc, mem);
++}
++
++int ngtcp2_conn_set_initial_pkt_num(ngtcp2_conn *conn, uint32_t number) {
++  ngtcp2_pktns *pktns = conn->in_pktns;
++  if (!pktns || conn->state != NGTCP2_CS_CLIENT_INITIAL || number > INT32_MAX ||
++      pktns->tx.last_pkt_num != (int64_t)pktns->initial_pkt_num - 1)
++    return NGTCP2_ERR_INVALID_ARGUMENT;
++  pktns->initial_pkt_num = number;
++  pktns->tx.last_pkt_num = (int64_t)number - 1;
++  pktns->rtb.cc_pkt_num = number;
++  return 0;
+ }
+ 
+ static int pktns_new(ngtcp2_pktns **ppktns, ngtcp2_pktns_id pktns_id,
+@@ -6836,7 +6848,7 @@
+       fr.ack.ack_delay_unscaled = 0;
+ 
+       rv =
+-        ngtcp2_pkt_validate_ack(&fr.ack, conn->local.settings.initial_pkt_num);
++        ngtcp2_pkt_validate_ack(&fr.ack, pktns->initial_pkt_num);
+       if (rv != 0) {
+         return rv;
+       }
+@@ -9018,7 +9030,7 @@
+       fr.ack.ack_delay_unscaled = 0;
+ 
+       rv =
+-        ngtcp2_pkt_validate_ack(&fr.ack, conn->local.settings.initial_pkt_num);
++        ngtcp2_pkt_validate_ack(&fr.ack, pktns->initial_pkt_num);
+       if (rv != 0) {
+         return rv;
+       }
+@@ -9456,7 +9468,7 @@
+         &fr.ack, conn->remote.transport_params->ack_delay_exponent);
+ 
+       rv =
+-        ngtcp2_pkt_validate_ack(&fr.ack, conn->local.settings.initial_pkt_num);
++        ngtcp2_pkt_validate_ack(&fr.ack, pktns->initial_pkt_num);
+       if (rv != 0) {
+         return rv;
+       }
+--- a/lib/ngtcp2_conn.h
++++ b/lib/ngtcp2_conn.h
+@@ -195,6 +195,7 @@
+ #define NGTCP2_CONN_FLAG_CRUMBLE_INITIAL_CRYPTO 0x40000u
+ 
+ typedef struct ngtcp2_pktns {
++  uint32_t initial_pkt_num;
+   struct {
+     /* last_pkt_num is the packet number which the local endpoint sent
+        last time.*/
+--- a/tests/ngtcp2_conn_test.c
++++ b/tests/ngtcp2_conn_test.c
+@@ -96,6 +96,7 @@
+   munit_void_test(test_ngtcp2_conn_send_initial_token),
+   munit_void_test(test_ngtcp2_conn_set_remote_transport_params),
+   munit_void_test(test_ngtcp2_conn_set_local_transport_params_raw),
++  munit_void_test(test_ngtcp2_conn_set_initial_pkt_num),
+   munit_void_test(test_ngtcp2_conn_write_connection_close),
+   munit_void_test(test_ngtcp2_conn_write_application_close),
+   munit_void_test(test_ngtcp2_conn_rtb_reclaim_on_pto),
+@@ -18354,3 +18355,23 @@
+ 
+   assert_enum(ngtcp2_ccerr_type, NGTCP2_CCERR_TYPE_RETRY, ==, ccerr.type);
+ }
++
++void test_ngtcp2_conn_set_initial_pkt_num(void) {
++  ngtcp2_conn *conn;
++  uint8_t buf[1200];
++  ngtcp2_ssize written;
++
++  setup_handshake_client(&conn);
++  assert_int(NGTCP2_ERR_INVALID_ARGUMENT, ==,
++             ngtcp2_conn_set_initial_pkt_num(conn, UINT32_MAX));
++  assert_int(0, ==, ngtcp2_conn_set_initial_pkt_num(conn, 1024));
++  assert_int64(1023, ==, conn->in_pktns->tx.last_pkt_num);
++  assert_int64(1024, ==, conn->in_pktns->rtb.cc_pkt_num);
++  assert_int64(-1, ==, conn->hs_pktns->tx.last_pkt_num);
++  assert_int64(-1, ==, conn->pktns.tx.last_pkt_num);
++  written = ngtcp2_conn_write_pkt(conn, NULL, NULL, buf, sizeof(buf), 1);
++  assert_ssize(0, <, written);
++  assert_int(NGTCP2_ERR_INVALID_ARGUMENT, ==,
++             ngtcp2_conn_set_initial_pkt_num(conn, 1));
++  ngtcp2_conn_del(conn);
++}
+--- a/tests/ngtcp2_conn_test.h
++++ b/tests/ngtcp2_conn_test.h
+@@ -90,6 +90,7 @@
+ munit_void_test_decl(test_ngtcp2_conn_send_initial_token)
+ munit_void_test_decl(test_ngtcp2_conn_set_remote_transport_params)
+ munit_void_test_decl(test_ngtcp2_conn_set_local_transport_params_raw)
++munit_void_test_decl(test_ngtcp2_conn_set_initial_pkt_num)
+ munit_void_test_decl(test_ngtcp2_conn_write_connection_close)
+ munit_void_test_decl(test_ngtcp2_conn_write_application_close)
+ munit_void_test_decl(test_ngtcp2_conn_rtb_reclaim_on_pto)

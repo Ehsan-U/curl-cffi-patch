@@ -270,3 +270,56 @@ def test_parse_fingerprints_keeps_tls_trust_anchors():
 
     assert fingerprint.tls_trust_anchors == ["2.5.4.3", "2.5.4.10"]
     assert Fingerprint().tls_trust_anchors is None
+
+
+@pytest.mark.parametrize("target,version", [("chrome153_win", "153.0.8010.48"), ("firefox156_win", "156.0")])  # noqa: E501
+def test_get_windows_fingerprint_is_builtin_and_independently_editable(monkeypatch, tmp_path, target, version):  # noqa: E501
+    monkeypatch.setenv("IMPERSONATE_CONFIG_DIR", str(tmp_path))
+    fingerprint = curl_cffi.get_fingerprint(target)
+
+    assert fingerprint.client_version == version
+    assert fingerprint.os == "Windows"
+    assert fingerprint.os_version == "11"
+    assert "Windows NT 10.0; Win64; x64" in fingerprint.headers["user-agent"]
+    assert next(row for row in FingerprintManager.list_fingerprints() if row["name"] == target) == {"type": "builtin", "name": target, "browser": fingerprint.client, "version": version, "os": "Windows", "os_version": "11", "h3_fingerprints": True}  # noqa: E501
+    fingerprint.headers.clear()
+    fingerprint.tls_ciphers.clear()
+    assert curl_cffi.get_fingerprint(target).headers
+    assert curl_cffi.get_fingerprint(target).tls_ciphers
+
+
+def test_windows_profiles_do_not_change_existing_browser_aliases():
+    assert resolve_latest_browser_type("chrome") == "chrome150"
+    assert resolve_latest_browser_type("firefox") == "firefox147"
+
+
+def test_chrome_windows_http3_capabilities_keep_http2_as_default():
+    fingerprint = curl_cffi.get_fingerprint("chrome153_win")
+
+    assert fingerprint.http_version == "v2"
+    assert fingerprint.split_cookies is True
+    assert fingerprint.form_boundary == "webkit4"
+    assert fingerprint.http3_tls_signature_hashes[-1] == "rsa_pkcs1_sha1"
+    assert "mldsa44" in fingerprint.tls_signature_hashes
+    assert "mldsa44" not in fingerprint.http3_tls_signature_hashes
+    assert fingerprint.quic_initial_packet_number == 1
+    assert "SHUFFLE:1,GREASE" in fingerprint.quic_transport_parameters
+    assert "GREASE_CHROME" in fingerprint.quic_transport_parameters
+    assert "12583:" not in fingerprint.quic_transport_parameters
+
+
+
+def test_firefox_windows_http3_capabilities_are_protocol_specific():
+    fingerprint = curl_cffi.get_fingerprint("firefox156_win")
+
+    assert fingerprint.http_version == "v2"
+    assert fingerprint.split_cookies is True
+    assert fingerprint.http3_split_cookies is False
+    assert fingerprint.form_boundary == "firefox4"
+    assert fingerprint.headers["te"] == "trailers"
+    assert "te" not in fingerprint.http3_headers
+    assert "mldsa44" not in fingerprint.tls_signature_hashes
+    assert "mldsa44" in fingerprint.http3_tls_signature_hashes
+    assert fingerprint.quic_firefox_initial_packet_number is True
+    assert fingerprint.quic_v2 is True
+    assert "4278378010:1000" in fingerprint.quic_transport_parameters

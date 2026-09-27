@@ -29,6 +29,7 @@ customized fingerprints. See below for details.
 - chrome142 :sup:`11`
 - chrome145 :sup:`13` :sup:`14`
 - chrome146 :sup:`13` :sup:`14`
+- chrome153_win (requires the :doc:`Windows native patches <windows>`)
 - chrome99_android
 - chrome131_android :sup:`5`
 - edge99
@@ -48,6 +49,7 @@ customized fingerprints. See below for details.
 - firefox135 :sup:`7`
 - firefox144 :sup:`11` :sup:`12`
 - firefox147 :sup:`13` :sup:`14`
+- firefox156_win (requires the :doc:`Windows native patches <windows>`)
 - tor145 :sup:`8`
 - okhttp50a2
 - okhttp51_android11
