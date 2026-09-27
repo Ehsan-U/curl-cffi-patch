@@ -51,7 +51,7 @@ jobs:
           python-version: "3.11"
       - name: Install macOS native build tools
         if: runner.os == 'macOS'
-        run: brew install cmake make automake libtool
+        run: brew install cmake ninja make automake libtool
       - name: Build and test installed wheels with patched native libraries
         uses: pypa/cibuildwheel@v3.3.1
       - name: Verify HTTP/2 and HTTP/3 from the installed abi3 wheel

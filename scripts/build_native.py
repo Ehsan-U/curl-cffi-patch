@@ -76,6 +76,11 @@ def build(libdir):
         (libdir / "licenses").mkdir(exist_ok=True)
         for license_file in install.glob("LICENSE*"):
             shutil.copy2(license_file, libdir / "licenses" / license_file.name)
+        if system == "Linux":
+            runtime_license = libdir / "licenses/LICENSE_GCC_RUNTIME_EXCEPTION"
+            urlretrieve("https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-14/COPYING.RUNTIME", runtime_license)  # noqa: E501
+            if hashlib.sha256(runtime_license.read_bytes()).hexdigest() != "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74":  # noqa: E501
+                raise RuntimeError("GCC runtime license checksum mismatch")
         shutil.copy2(combined, archive)
         marker.write_text(json.dumps(identity, indent=2) + "\n")
         print(f"Built patched native archive: {archive}", flush=True)

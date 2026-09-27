@@ -186,7 +186,7 @@ HTTP/2 and HTTP/3 integration suites on their host runners. Live public collecto
 are excluded from CI to avoid making release builds depend on external uptime.
 
 Source installs also build the patched native library rather than downloading
-an unpatched binary. They require CMake 3.20+, GNU make, a C/C++ compiler,
+an unpatched binary. They require CMake 3.20+, Ninja, GNU make, a C/C++ compiler,
 ``patch``, ``tar``, autotools, and pkg-config. Linux needs GCC/G++ and GNU ``ar``;
 macOS uses the Xcode toolchain, Apple ``libtool``, and Homebrew ``gmake``.
 The native project archive is checksum verified and cached with the patch/build

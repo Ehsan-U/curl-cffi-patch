@@ -28,7 +28,7 @@ def test_installed_profiles_use_patched_native_library(target, stream_id, tmp_pa
     certificate.configure_cert(context)
     context.set_alpn_protocols(["h2"])
     context.minimum_version = ssl.TLSVersion.TLSv1_3
-    context.set_ecdh_curve("X25519")
+    context.set_ecdh_curve("prime256v1")
     with socket.socket() as server:
         server.bind(("127.0.0.1", 0))
         server.listen(1)
