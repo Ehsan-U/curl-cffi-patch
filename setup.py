@@ -1,4 +1,8 @@
+import shutil
+from pathlib import Path
+
 from setuptools import setup
+from setuptools.command.build_py import build_py
 from wheel.bdist_wheel import bdist_wheel
 
 
@@ -23,10 +27,19 @@ class bdist_wheel_abi3(bdist_wheel):
         return python, abi, plat
 
 
+class build_py_with_native_licenses(build_py):
+    def run(self):
+        super().run()
+        extension = next(item for item in self.distribution.ext_modules if item.name == "curl_cffi._wrapper")  # noqa: E501
+        native_dir = Path(extension.library_dirs[0])
+        shutil.copytree(native_dir / "licenses", Path(self.build_lib) / "curl_cffi/native_licenses", dirs_exist_ok=True)  # noqa: E501
+
+
 setup(
     # this option is only valid in setup.py
     cffi_modules=["scripts/build.py:ffibuilder"],
     cmdclass={
         "bdist_wheel": bdist_wheel_abi3,
+        "build_py": build_py_with_native_licenses,
     },
 )

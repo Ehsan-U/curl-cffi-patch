@@ -20,9 +20,12 @@ Native library requirement
 --------------------------
 
 These profiles require the supplemental patches in ``ffi/patches/`` on top of
-curl-impersonate **v2.2.2**. The upstream v2.2.2 release binary alone is insufficient.
-An unpatched build raises a curl unsupported-option error; it does not silently
-substitute a similar profile. Other profiles do not set the new options.
+curl-impersonate **v2.2.2**. Wheels produced by this repository's build workflow
+statically bundle that patched library. They do not depend on system curl or
+an Impersonate Pro subscription. Older published releases do not acquire these
+profiles automatically; publishing requires a new package version and release tag.
+The upstream v2.2.2 binary alone is insufficient. Other profiles do not set the
+new options.
 
 The patches add:
 
@@ -167,14 +170,30 @@ Restore these advertisements only after implementing and validating the behavior
 tracking upstream `ACK_FREQUENCY <https://github.com/ngtcp2/ngtcp2/pull/1348>`_
 and `reliable stream reset <https://github.com/ngtcp2/ngtcp2/pull/1097>`_.
 
-Build on Linux
---------------
+Wheels and source builds
+------------------------
 
-The supplied helper is for a native GNU/Linux build, tested on x86_64. It needs
-``uv``, ``curl_chrome145``, CMake 3.20+, Ninja, GNU make, GCC/G++, ``ar``, ``patch``,
-and ``tar``. Run it from an activated project virtual environment, or set
-``VIRTUAL_ENV`` to the environment in which the package should be installed.
-Use a fresh absolute build directory outside the checkout:
+The wheel matrix covers Linux x86_64 and ARM64 (manylinux2014 and musllinux), and
+macOS ARM64 (Apple Silicon, macOS 11+). Regular CPython wheels use the stable ABI
+for Python 3.10+; CPython 3.14 free-threaded builds have separate wheels. Windows,
+macOS Intel, and other architectures are outside this distribution's build matrix.
+
+Every wheel is installed into an isolated environment for unit tests and local
+TLS/HTTP2 requests with both Windows profiles. These checks apply the profiles'
+HTTP/3 native options as well, preventing an unpatched upstream library from
+passing. The native manylinux and macOS abi3 wheels additionally run the local
+HTTP/2 and HTTP/3 integration suites on their host runners. Live public collectors
+are excluded from CI to avoid making release builds depend on external uptime.
+
+Source installs also build the patched native library rather than downloading
+an unpatched binary. They require CMake 3.20+, GNU make, a C/C++ compiler,
+``patch``, ``tar``, autotools, and pkg-config. Linux needs GCC/G++ and GNU ``ar``;
+macOS uses the Xcode toolchain, Apple ``libtool``, and Homebrew ``gmake``.
+The native project archive is checksum verified and cached with the patch/build
+identity. Dependency license files are included in each wheel.
+
+For an editable installation, activate the intended virtual environment and use
+an absolute build directory outside the checkout:
 
 .. code-block:: bash
 
@@ -196,10 +215,15 @@ After the initial build, reinstall against the same archive with:
       IMPERSONATE_LINK_TYPE=static uv pip install --reinstall-package curl-cffi-patch -e '.[test,dev,integration]'
 
 When switching native archives, use a fresh Python build directory so a cached
-extension cannot retain the previous library. Wheel/release builds must use the
-same patched native library; the ordinary upstream binary download path does
-not apply these supplemental patches. Other platforms require their equivalent
-native build/packaging procedure and have not been validated here.
+extension cannot retain the previous library. ``IMPERSONATE_BUILD_DIR`` selects
+the directory containing the archive, headers, licenses, and ``native-build.json``.
+Without an override, source builds use a cache under
+``~/.cache/curl-cffi-patch/native/``. Builds regenerate archives when the native
+builder or patches change and do not fall back to upstream binaries.
+
+CI builds the source distribution with ``CURL_CFFI_BUILD_SDIST=1`` to avoid
+embedding host-specific artifacts. That flag is only for producing the source
+archive, not for compiling a wheel.
 
 Verification and scope
 ----------------------
